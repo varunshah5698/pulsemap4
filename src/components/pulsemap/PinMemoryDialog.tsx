@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
+import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import { ImagePlus, Loader2, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -28,11 +29,14 @@ export function PinMemoryDialog({
   onOpenChange,
   coords,
   onPinned,
+  dark = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   coords: { lat: number; lng: number } | null;
   onPinned?: () => void;
+  /** Renders the panel with the dark dashboard theme instead of paper. */
+  dark?: boolean;
 }) {
   const generateUploadUrl = useMutation(api.memories.generateUploadUrl);
   const createMemory = useMutation(api.memories.create);
@@ -160,7 +164,12 @@ export function PinMemoryDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-h-[92vh] overflow-y-auto rounded-sm border-[var(--rule)] sm:max-w-2xl">
+      <DialogContent
+        className={cn(
+          "max-h-[92vh] overflow-y-auto rounded-sm border-[var(--rule)] sm:max-w-2xl",
+          dark && "pm-dark rounded-[26px] border-white/10",
+        )}
+      >
         <DialogHeader>
           <DialogTitle className="font-display text-3xl font-normal">
             Pin a memory
