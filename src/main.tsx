@@ -1,6 +1,7 @@
 import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
+import { AuthRedirect } from "@/components/auth/AuthRedirect";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
@@ -11,7 +12,9 @@ import "./index.css";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
-const AuthPage = lazy(() => import("./pages/Auth.tsx"));
+const Login = lazy(() => import("./pages/Login.tsx"));
+const Signup = lazy(() => import("./pages/Signup.tsx"));
+const ForgotPassword = lazy(() => import("./pages/ForgotPassword.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
 const MapPage = lazy(() => import("./pages/MapPage.tsx"));
 const Explore = lazy(() => import("./pages/Explore.tsx"));
@@ -126,10 +129,12 @@ createRoot(document.getElementById("root")!).render(
           <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<Landing />} />
-              <Route
-                path="/auth"
-                element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />              <Route
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              {/* Older links still point at /auth, so they are forwarded
+                  to the sign-in route with their returnTo preserved. */}
+              <Route path="/auth" element={<AuthRedirect to="/login" />} />              <Route
                 path="/dashboard"
                 element={
                   <RequireAuth
