@@ -811,15 +811,32 @@ function GlobeScene({
   };
 
   useFrame((state, delta) => {
-    if (broken.current) return;
     try {
+      if (broken.current) return;
       renderFrame(state, delta);
     } catch (error) {
-      broken.current = true;
+      /*
+       * The guard lives inside the `try` on purpose: it is the one line that runs
+       * before `renderFrame`, so if this module is ever served mid-write with a
+       * binding missing, the throw lands here instead of escaping.
+       *
+       * A throw from inside requestAnimationFrame is not something a React error
+       * boundary can catch — it reaches the top of the frame loop and kills the
+       * render loop for the rest of the session.
+       *
+       * Recovery is therefore best-effort: latching reads the same refs that may
+       * be the missing ones, so that part gets its own guard. Failing to latch
+       * only means the loop keeps trying, and the page keeps its 2D map.
+       */
+      try {
+        broken.current = true;
+        onErrorRef.current?.(
+          error instanceof Error ? error.message : "The 3D view stopped unexpectedly.",
+        );
+      } catch {
+        /* nothing left to latch with; the page keeps its 2D map */
+      }
       console.error("Pulsemap globe frame failed:", error);
-      onErrorRef.current?.(
-        error instanceof Error ? error.message : "The 3D view stopped unexpectedly.",
-      );
     }
   });
 

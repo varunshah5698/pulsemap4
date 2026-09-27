@@ -288,6 +288,12 @@ export default function MapPage() {
   const [locating, setLocating] = useState(false);
   /** Set only if the 3D frame loop throws: the flat map is still there. */
   const [globeError, setGlobeError] = useState<string | null>(null);
+  /** Remounting the stage is how the 3D view recovers, so retry just bumps this. */
+  const [globeKey, setGlobeKey] = useState(0);
+  const retryGlobe = () => {
+    setGlobeError(null);
+    setGlobeKey((value) => value + 1);
+  };
   const [locationNote, setLocationNote] = useState<string | null>(null);
 
   /* --- chrome ---------------------------------------------------------- */
@@ -629,6 +635,7 @@ export default function MapPage() {
                 aria-hidden={mode === "map"}
               >
                 <StageBoundary
+                  key={globeKey}
                   fallback={
                     <div className="grid h-full w-full place-items-center bg-[#07080c] px-8 text-center">
                       <div>
@@ -636,9 +643,16 @@ export default function MapPage() {
                           The globe had to step aside
                         </p>
                         <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-white/50">
-                          Your browser dropped the 3D view. Switch to the 2D map to keep
-                          exploring, or reload the page to bring the globe back.
+                          The 3D view hit an error. Your memories are safe — try it again,
+                          or keep exploring on the flat map.
                         </p>
+                        <button
+                          type="button"
+                          onClick={retryGlobe}
+                          className="mt-4 rounded-full bg-[#ff6a2c] px-3.5 py-1.5 text-[12px] font-semibold text-white"
+                        >
+                          Try 3D again
+                        </button>
                       </div>
                     </div>
                   }
@@ -858,15 +872,25 @@ export default function MapPage() {
               {globeError && mode === "globe" ? (
                 <div className="absolute inset-x-3 bottom-3 z-40 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#141419]/96 px-4 py-3 text-center backdrop-blur-xl lg:inset-x-auto lg:right-4 lg:bottom-4 lg:left-auto lg:max-w-sm lg:text-left">
                   <p className="text-[12px] leading-5 text-white/70">
-                    The 3D view stopped — your browser dropped the render loop.
+                    The 3D view stopped. Your memories are safe — try it again, or keep
+                    going on the flat map.
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => showMap(effectiveView)}
-                    className="rounded-full bg-[#ff6a2c] px-3.5 py-1.5 text-[12px] font-semibold text-white"
-                  >
-                    Use the 2D map
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={retryGlobe}
+                      className="rounded-full bg-[#ff6a2c] px-3.5 py-1.5 text-[12px] font-semibold text-white"
+                    >
+                      Try 3D again
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => showMap(effectiveView)}
+                      className="rounded-full border border-white/15 px-3.5 py-1.5 text-[12px] font-semibold text-white/80"
+                    >
+                      Use the 2D map
+                    </button>
+                  </div>
                 </div>
               ) : null}
 
