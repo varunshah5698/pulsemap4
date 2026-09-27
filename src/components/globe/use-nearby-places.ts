@@ -29,6 +29,10 @@ export type PlacesConfig = {
   photoBase: string | null;
   scopes: { key: string; label: string }[];
   nearbyMaxRadiusKm: number;
+  /** Maps JavaScript API key for the flat map; signed-in callers only. */
+  browserKey: string | null;
+  /** True when the browser key is a dedicated, referrer-restricted one. */
+  browserKeyDedicated: boolean;
 };
 
 type NearbyArgs = { lat: number; lng: number; radiusKm: number };

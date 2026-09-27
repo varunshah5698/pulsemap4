@@ -23,11 +23,24 @@ export const MAX_DISTANCE = 7;
 /** Big enough to see a ridge; small enough that the poles never flip over. */
 export const MAX_TILT = 1.4;
 
+/** The camera's field of view, in degrees. Keep in step with the Canvas. */
+export const CAMERA_FOV_DEG = 32;
+
 /** Angular radius of the patch of Earth on screen, in kilometres. */
-export function viewRadiusKm(distance: number, fovDeg = 32): number {
+export function viewRadiusKm(distance: number, fovDeg = CAMERA_FOV_DEG): number {
   const half = Math.tan((fovDeg * DEG2RAD) / 2);
   const altitude = Math.max(distance - GLOBE_RADIUS, 0.0004);
   return EARTH_RADIUS_KM * Math.atan(half * altitude);
+}
+
+/**
+ * The inverse of `viewRadiusKm`: the camera distance that frames this much
+ * ground. Used to line the 3D globe up with a 2D map of the same place.
+ */
+export function distanceForSpan(spanKm: number, fovDeg = CAMERA_FOV_DEG): number {
+  const half = Math.tan((fovDeg * DEG2RAD) / 2);
+  const angle = Math.max(spanKm, 0.01) / EARTH_RADIUS_KM;
+  return GLOBE_RADIUS + Math.tan(angle) / half;
 }
 
 /** World-space scale that keeps a marker the same size on screen. */

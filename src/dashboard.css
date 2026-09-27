@@ -383,6 +383,172 @@
     box-shadow: 0 0 0 3px rgba(255, 106, 44, 0.35);
   }
 
+  /* --- The flat map, once the globe gets too close for a satellite texture --- */
+
+  .pm-map-shell {
+    position: relative;
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    background: #0f0f11;
+  }
+
+  .pm-map-canvas {
+    position: absolute;
+    inset: 0;
+    height: 100%;
+    width: 100%;
+  }
+
+  /* Google's tiles cannot be recoloured here, so the shell frames them. */
+  .pm-map-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    box-shadow: inset 0 0 120px rgba(5, 6, 11, 0.55);
+  }
+
+  .pm-map-note {
+    position: absolute;
+    inset-inline: 1.25rem;
+    bottom: 1.25rem;
+    z-index: 6;
+    border-radius: 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(20, 20, 25, 0.96);
+    padding: 0.9rem 1.1rem;
+    font-size: 12px;
+    backdrop-filter: blur(16px);
+  }
+
+  .pm-map-types {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: 6;
+    display: flex;
+    gap: 0.25rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(15, 16, 20, 0.9);
+    padding: 0.25rem;
+    backdrop-filter: blur(14px);
+  }
+
+  .pm-map-type {
+    border-radius: 999px;
+    padding: 0.35rem 0.75rem;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.6);
+    transition: background-color 160ms ease, color 160ms ease;
+  }
+
+  .pm-map-type[aria-pressed="true"] {
+    background: #ff6a2c;
+    color: #fff;
+  }
+
+  /* Markers are plain DOM: the map owns their position, we own their look. */
+  .pm-map-marker {
+    position: absolute;
+    top: 0;
+    left: 0;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    /* `transform` is rewritten on every draw, so it must never transition. */
+    will-change: transform;
+  }
+
+  .pm-map-marker--memory {
+    height: 2.4rem;
+    width: 2.4rem;
+    overflow: hidden;
+    border-radius: 999px;
+    border-width: 2px;
+    border-style: solid;
+    border-color: #3f6b5a;
+    background: #14151a;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.55);
+    transition: scale 180ms ease, box-shadow 180ms ease;
+  }
+
+  .pm-map-marker--memory img {
+    height: 100%;
+    width: 100%;
+    object-fit: cover;
+  }
+
+  .pm-map-marker--memory.is-active {
+    scale: 1.18;
+    z-index: 4;
+    box-shadow: 0 0 0 3px rgba(255, 106, 44, 0.35), 0 14px 30px rgba(0, 0, 0, 0.6);
+  }
+
+  .pm-map-marker__dot {
+    height: 0.9rem;
+    width: 0.9rem;
+    border-radius: 999px;
+  }
+
+  .pm-map-marker--place {
+    height: 1.7rem;
+    width: 1.7rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(18, 19, 24, 0.92);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+    transition: scale 180ms ease;
+  }
+
+  .pm-map-marker--place:hover,
+  .pm-map-marker--place.is-active {
+    scale: 1.16;
+    z-index: 4;
+  }
+
+  .pm-map-marker--place.is-promoted {
+    border-color: rgba(255, 106, 44, 0.7);
+    box-shadow: 0 0 0 3px rgba(255, 106, 44, 0.18), 0 8px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  .pm-map-marker__glyph {
+    font-size: 13px;
+    line-height: 1;
+    filter: grayscale(0.15);
+  }
+
+  .pm-map-marker__label {
+    position: absolute;
+    top: calc(100% + 0.3rem);
+    left: 50%;
+    translate: -50% 0;
+    max-width: 11rem;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    border-radius: 0.5rem;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(13, 13, 18, 0.94);
+    padding: 0.15rem 0.45rem;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #fff;
+    pointer-events: none;
+  }
+
+  .pm-map-marker--me {
+    height: 1rem;
+    width: 1rem;
+    border-radius: 999px;
+    border: 2px solid #fff;
+    background: #ff6a2c;
+    box-shadow: 0 0 0 6px rgba(255, 106, 44, 0.22);
+    pointer-events: none;
+  }
+
   /* The card-to-marker line marching toward the memory. */
   .pm-connector-flow {
     animation: pm-connector 1.5s linear infinite;

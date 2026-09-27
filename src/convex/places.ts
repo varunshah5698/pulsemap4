@@ -664,16 +664,33 @@ function serializePlace(row: Doc<"places">, centre?: { lat: number; lng: number 
 
 export type SerializedPlace = ReturnType<typeof serializePlace>;
 
-/** Is a Google key wired up, and where do photographs stream from? */
+/**
+ * Is a Google key wired up, where do photographs stream from, and can the
+ * browser draw a 2D map?
+ *
+ * The Maps JavaScript API key has to reach the browser — that is how the API
+ * works — so it is a *separate* key from the one that calls Places from here:
+ * set `GOOGLE_MAPS_BROWSER_KEY` restricted to your site's referrers, and the
+ * server-side `GOOGLE_MAPS_API_KEY` stays server-side only. Falling back to the
+ * server key keeps a single-key project working, but that key should then be
+ * referrer-restricted too. Only signed-in callers ever see it.
+ */
 export const config = query({
   args: {},
-  handler: async () => {
+  handler: async (ctx) => {
+    const identity = await ctx.auth.getUserIdentity();
     const site = process.env.CONVEX_SITE_URL ?? "";
     return {
       configured: apiKey() !== null,
       photoBase: site ? `${site}/places/photo?ref=` : null,
       scopes: SCOPES.map((scope) => ({ key: scope.key, label: scope.label })),
       nearbyMaxRadiusKm: NEARBY_MAX_RADIUS_KM,
+      browserKey:
+        identity && apiKey() !== null
+          ? (process.env.GOOGLE_MAPS_BROWSER_KEY ?? process.env.GOOGLE_MAPS_API_KEY ?? null)
+          : null,
+      /** True when the browser key is a dedicated, referrer-restricted one. */
+      browserKeyDedicated: Boolean(process.env.GOOGLE_MAPS_BROWSER_KEY),
     };
   },
 });

@@ -14,10 +14,11 @@ import { NavigationControls, PlaceCategories, ViewChip, formatLatLng } from "@/c
 import { GlobeFilters, type GlobeScope } from "@/components/globe/GlobeFilters";
 import { MemoryConnector, MemoryNotification } from "@/components/globe/MemoryNotification";
 import type { GlobePin } from "@/components/globe/Markers";
+import { PlaceMap2D, type Map2DView } from "@/components/globe/PlaceMap2D";
 import { PlacePanel, type PlaceMemoryLink, type PlaceSummary } from "@/components/globe/PlacePanel";
 import { PlaceSearch } from "@/components/globe/PlaceSearch";
 import { RecentMemories } from "@/components/globe/RecentMemories";
-import { haversineKm } from "@/components/globe/geo";
+import { MAX_DISTANCE, MIN_DISTANCE, distanceForSpan, haversineKm } from "@/components/globe/geo";
 import { useGlobeView, createViewSignal } from "@/components/globe/use-globe-view";
 import { useMemoryStream } from "@/components/globe/use-memory-stream";
 import { PLACES_SPAN_KM, useNearbyPlaces } from "@/components/globe/use-nearby-places";
@@ -28,7 +29,7 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
-import { Compass, Globe2, MapPin, Plus } from "lucide-react";
+import { Compass, Globe2, MapIcon, MapPin, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
@@ -51,6 +52,19 @@ type MapPin = {
 
 /** How close a memory has to be before we say "you have been here". */
 const MEMORY_NEARBY_M = 300;
+
+/**
+ * Where the globe stops being useful and the flat map takes over.
+ *
+ * One globe texture pixel covers kilometres at this zoom, so there are simply
+ * no streets to look at. Handing over here is what makes "zoom into Paris"
+ * show Paris.
+ */
+const MAP_HANDOFF_KM = 130;
+/** Come back out past this and the globe becomes the better view again. */
+const GLOBE_RETURN_KM = 420;
+
+type StageMode = "globe" | "map";
 
 function toGlobePin(pin: MapPin, userId: string | undefined): GlobePin {
   return {
@@ -154,14 +168,98 @@ export default function MapPage() {
     setCommand({ kind: "reset", nonce: nonce.current });
   }, []);
 
+  /* --- globe or flat map ------------------------------------------------ */
+  const [mode, setMode] = useState<StageMode>("globe");
+  const [mapView, setMapView] = useState<GlobeView | null>(null);
+  const mapSyncNonce = useRef(0);
+  const [mapSync, setMapSync] = useState({ lat: 0, lng: 0, spanKm: 3400, nonce: 0 });
+  /** Set once the person picks the globe themselves, so we stop handing over. */
+  const handoffDismissed = useRef(false);
+
+  /** The camera both views agree on: the flat map wins while it is on screen. */
+  const effectiveView: GlobeView = mode === "map" && mapView ? mapView : view;
+
+  /** The globe's camera distance that frames the same patch of ground. */
+  const distanceFor = useCallback(
+    (spanKm: number) =>
+      Math.min(MAX_DISTANCE, Math.max(MIN_DISTANCE, distanceForSpan(spanKm))),
+    [],
+  );
+
+  const showMap = useCallback(
+    (source: { lat: number; lng: number; spanKm: number }) => {
+      mapSyncNonce.current += 1;
+      setMapSync({
+        lat: source.lat,
+        lng: source.lng,
+        spanKm: source.spanKm,
+        nonce: mapSyncNonce.current,
+      });
+      setMapView({
+        lat: source.lat,
+        lng: source.lng,
+        spanKm: source.spanKm,
+        distance: distanceFor(source.spanKm),
+        local: true,
+      });
+      setMode("map");
+    },
+    [distanceFor],
+  );
+
+  /** What the flat map is looking at, reported once it settles. */
+  const handleMapView = useCallback(
+    (next: Map2DView) => {
+      setMapView({
+        lat: next.lat,
+        lng: next.lng,
+        spanKm: next.spanKm,
+        distance: distanceFor(next.spanKm),
+        local: true,
+      });
+    },
+    [distanceFor],
+  );
+
+  /** The frame loop is paused in map mode, so effects must not rely on `mode`. */
+  const modeRef = useRef(mode);
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  /** Hand the camera back to the globe exactly where the flat map left it. */
+  const showGlobe = useCallback(() => {
+    handoffDismissed.current = true;
+    const target = mapView;
+    setMode("globe");
+    if (!target) return;
+    nonce.current += 1;
+    setCommand({
+      kind: "centre",
+      lat: target.lat,
+      lng: target.lng,
+      distance: target.distance,
+      nonce: nonce.current,
+    });
+  }, [mapView]);
+
   /* --- memory notifications ------------------------------------------- */
   const { current, cardShown, queued, focus, present, showNow, dismiss, markArrived } =
     useMemoryStream();
 
+  /**
+   * A new memory turns the globe toward it. In 2D mode the globe is paused, so
+   * the flat map is what actually travels — the card and its photo still land.
+   */
+  const handledFocus = useRef(0);
   useEffect(() => {
-    if (!focus) return;
+    if (!focus || focus.nonce === handledFocus.current) return;
+    handledFocus.current = focus.nonce;
     aim(focus.lat, focus.lng, 2.35);
-  }, [aim, focus]);
+    if (modeRef.current === "map") {
+      showMap({ lat: focus.lat, lng: focus.lng, spanKm: 4 });
+    }
+  }, [aim, focus, showMap]);
 
   /* --- filters --------------------------------------------------------- */
   const [scope, setScope] = useState<GlobeScope>("all");
@@ -170,7 +268,7 @@ export default function MapPage() {
   const [category, setCategory] = useState("all");
 
   /* --- real places ----------------------------------------------------- */
-  const nearby = useNearbyPlaces({ view, category, enabled: true });
+  const nearby = useNearbyPlaces({ view: effectiveView, category, enabled: true });
   const [searchResults, setSearchResults] = useState<PlaceSummary[]>([]);
   const [selected, setSelected] = useState<{
     id: string;
@@ -227,28 +325,30 @@ export default function MapPage() {
         rating: place.rating,
         reviewCount: place.reviewCount,
         distanceKm:
-          place.distanceKm ?? haversineKm(view.lat, view.lng, place.lat, place.lng),
+          place.distanceKm ??
+          haversineKm(effectiveView.lat, effectiveView.lng, place.lat, place.lng),
       })),
-    [placeById, view.lat, view.lng],
+    [effectiveView.lat, effectiveView.lng, placeById],
   );
 
   /**
    * Progressive density: at regional zoom only dots, then names, then names,
    * categories and distances — the closest ones to whatever we are facing.
    */
-  const labelLevel = view.spanKm <= 45 ? 3 : view.spanKm <= 130 ? 2 : 1;
+  const labelLevel =
+    effectiveView.spanKm <= 45 ? 3 : effectiveView.spanKm <= 130 ? 2 : 1;
   const labelIds = useMemo(() => {
     if (labelLevel === 1) return [];
     const count = labelLevel === 3 ? 14 : 8;
     return [...globePlaces]
       .sort(
         (a, b) =>
-          haversineKm(view.lat, view.lng, a.lat, a.lng) -
-          haversineKm(view.lat, view.lng, b.lat, b.lng),
+          haversineKm(effectiveView.lat, effectiveView.lng, a.lat, a.lng) -
+          haversineKm(effectiveView.lat, effectiveView.lng, b.lat, b.lng),
       )
       .slice(0, count)
       .map((place) => place.id);
-  }, [globePlaces, labelLevel, view.lat, view.lng]);
+  }, [globePlaces, labelLevel, effectiveView.lat, effectiveView.lng]);
 
   /**
    * Real places the person has a memory at. This is the one marker we promote:
@@ -289,9 +389,17 @@ export default function MapPage() {
   }, [memories, selected]);
 
   const openDialog = useCallback((next: { lat: number; lng: number } | null = null) => {
-    setCoords(next);
+    // With no point given, a new memory lands at the middle of whatever the
+    // person is actually looking at — easier than asking them to click a spot.
+    if (next) {
+      setCoords(next);
+    } else if (modeRef.current === "map" && mapView) {
+      setCoords({ lat: mapView.lat, lng: mapView.lng });
+    } else {
+      setCoords(null);
+    }
     setDialogOpen(true);
-  }, []);
+  }, [mapView]);
 
   const flyTo = useCallback(
     (pin: GlobePin) => {
@@ -326,12 +434,38 @@ export default function MapPage() {
       setSelected({ id: place.id, fallback: place });
       // Recentre only when the place is off to one side, so tapping a place
       // you can already see does not yank the camera around.
-      const angular = haversineKm(view.lat, view.lng, place.lat, place.lng);
-      if (angular > Math.max(view.spanKm * 0.4, 3)) {
-        aim(place.lat, place.lng, Math.min(view.distance, 1.12));
+      if (modeRef.current === "map") {
+        // The flat map flies there instead, keeping a neighbourhood-sized view.
+        showMap({
+          lat: place.lat,
+          lng: place.lng,
+          spanKm: Math.min(Math.max(effectiveView.spanKm, 1.5), 8),
+        });
+        return;
+      }
+      const angular = haversineKm(effectiveView.lat, effectiveView.lng, place.lat, place.lng);
+      if (angular > Math.max(effectiveView.spanKm * 0.4, 3)) {
+        aim(place.lat, place.lng, Math.min(effectiveView.distance, 1.12));
       }
     },
-    [aim, dismiss, view.distance, view.lat, view.lng, view.spanKm],
+    [
+      aim,
+      dismiss,
+      effectiveView.distance,
+      effectiveView.lat,
+      effectiveView.lng,
+      effectiveView.spanKm,
+      showMap,
+    ],
+  );
+
+  /** One handler for both views: a marker's id becomes the open place panel. */
+  const openPlaceById = useCallback(
+    (id: string) => {
+      const place = placeById.get(id);
+      if (place) openPlace(place);
+    },
+    [openPlace, placeById],
   );
 
   const locate = useCallback(() => {
@@ -362,10 +496,22 @@ export default function MapPage() {
 
   const openMemory = useCallback((id: string) => navigate(`/m/${id}`), [navigate]);
 
+  /**
+   * Descend far enough and the flat map takes over on its own — that is the
+   * whole point of it. Zooming back out (or choosing the globe yourself) hands
+   * control straight back, so manual navigation is never taken away.
+   */
+  useEffect(() => {
+    if (view.spanKm > GLOBE_RETURN_KM) handoffDismissed.current = false;
+    if (mode !== "globe" || handoffDismissed.current) return;
+    if (view.spanKm > MAP_HANDOFF_KM) return;
+    showMap(view);
+  }, [mode, showMap, view]);
+
   /* --- stage chrome ---------------------------------------------------- */
   const loading = pinRows === undefined;
   const empty = !loading && memories.length === 0;
-  const showEmptyCard = empty && view.spanKm > PLACES_SPAN_KM;
+  const showEmptyCard = empty && effectiveView.spanKm > PLACES_SPAN_KM;
   const scopes = nearby.config?.scopes ?? [];
 
   return (
@@ -400,6 +546,42 @@ export default function MapPage() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
+                {/* Globe or flat map: the same memories, two ways of seeing them. */}
+                <div
+                  role="group"
+                  aria-label="View style"
+                  className="pm-segmented flex items-center gap-1 p-1"
+                >
+                  {(
+                    [
+                      { key: "globe" as const, label: "3D globe", icon: Globe2 },
+                      { key: "map" as const, label: "2D map", icon: MapIcon },
+                    ]
+                  ).map((option) => {
+                    const Icon = option.icon;
+                    const active = mode === option.key;
+                    return (
+                      <button
+                        key={option.key}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() =>
+                          option.key === "map" ? showMap(effectiveView) : showGlobe()
+                        }
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[12px] font-semibold transition-colors",
+                          active
+                            ? "bg-[#ff6a2c] text-white"
+                            : "text-white/55 hover:text-white",
+                        )}
+                      >
+                        <Icon className="size-3.5" aria-hidden="true" />
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
                 <Link
                   to="/explore"
                   className="flex items-center gap-1.5 text-[13px] font-medium text-white/60 transition-colors hover:text-white"
@@ -421,7 +603,14 @@ export default function MapPage() {
             <section className="relative min-h-[540px] flex-1 overflow-hidden rounded-[26px] border border-white/[0.07]">
               <div className="pm-stage-sky absolute inset-0" aria-hidden="true" />
 
-              <div className="absolute inset-0">
+              {/*
+                The globe stays mounted even in 2D mode: the swap back is instant,
+                the textures stay loaded, and the frame loop is simply stopped.
+              */}
+              <div
+                className={cn("absolute inset-0", mode === "map" && "invisible")}
+                aria-hidden={mode === "map"}
+              >
                 <EarthGlobe
                   pins={globePins}
                   places={globePlaces}
@@ -433,22 +622,40 @@ export default function MapPage() {
                   command={command}
                   currentLocation={currentLocation}
                   autoSpin={autoSpin}
+                  paused={mode === "map"}
                   screenRef={screenRef}
                   viewRef={viewSignal}
                   onFocusArrived={markArrived}
                   onOpenMemory={openMemory}
-                  onOpenPlace={(id) => {
-                    const place = placeById.get(id);
-                    if (place) openPlace(place);
-                  }}
+                  onOpenPlace={openPlaceById}
                   onPickLocation={(next) => openDialog(next)}
                 />
               </div>
 
+              {mode === "map" ? (
+                <div className="absolute inset-0">
+                  <PlaceMap2D
+                    apiKey={nearby.config?.browserKey ?? null}
+                    configReady={nearby.config !== undefined}
+                    active
+                    sync={mapSync}
+                    pins={globePins}
+                    places={globePlaces}
+                    promotedIds={promotedPlaceIds}
+                    activeMemoryId={current?._id ?? null}
+                    activePlaceId={selected?.id ?? null}
+                    currentLocation={currentLocation}
+                    onView={handleMapView}
+                    onOpenMemory={openMemory}
+                    onOpenPlace={openPlaceById}
+                  />
+                </div>
+              ) : null}
+
               <MemoryConnector
                 screenRef={screenRef}
                 cardRef={cardRef}
-                active={cardShown && current !== null && !selected}
+                active={cardShown && current !== null && !selected && mode === "globe"}
               />
 
               {/* Search, categories and the memory filters */}
@@ -494,7 +701,7 @@ export default function MapPage() {
 
                   <div className="mt-3 border-t border-white/[0.07] pt-3">
                     <ViewChip
-                      view={view}
+                      view={effectiveView}
                       memories={globePins.length}
                       places={globePlaces.length}
                     />
@@ -512,17 +719,28 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* Manual navigation, always in reach */}
-              <NavigationControls
-                onZoomIn={() => zoomBy(0.72)}
-                onZoomOut={() => zoomBy(1.38)}
-                onReset={resetView}
-                onLocate={locate}
-                locating={locating}
-                autoSpin={autoSpin}
-                onToggleAutoSpin={() => setAutoSpin((value) => !value)}
-                className="absolute top-1/2 right-3 z-30 -translate-y-1/2 lg:right-5"
-              />
+              {/* Manual navigation, always in reach — the globe's own, that is. */}
+              {mode === "globe" ? (
+                <NavigationControls
+                  onZoomIn={() => zoomBy(0.72)}
+                  onZoomOut={() => zoomBy(1.38)}
+                  onReset={resetView}
+                  onLocate={locate}
+                  locating={locating}
+                  autoSpin={autoSpin}
+                  onToggleAutoSpin={() => setAutoSpin((value) => !value)}
+                  className="absolute top-1/2 right-3 z-30 -translate-y-1/2 lg:right-5"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={showGlobe}
+                  className="pm-panel absolute top-1/2 right-3 z-30 flex -translate-y-1/2 items-center gap-2 px-3.5 py-2.5 text-[12px] font-semibold text-white/80 backdrop-blur-xl transition-colors hover:text-white lg:right-5"
+                >
+                  <Globe2 className="size-3.5 text-[#ff6a2c]" aria-hidden="true" />
+                  Back to globe
+                </button>
+              )}
 
               <div className="absolute bottom-4 left-4 z-30 hidden w-[280px] lg:block">
                 <RecentMemories
@@ -576,6 +794,12 @@ export default function MapPage() {
                     </Button>
                   </div>
                 </div>
+              ) : null}
+
+              {mode === "map" ? (
+                <p className="pointer-events-none absolute bottom-4 left-1/2 z-30 hidden -translate-x-1/2 text-[11px] font-medium text-white/40 lg:block">
+                  Streets, labels and real places from Google Maps · your pins sit on top
+                </p>
               ) : null}
 
               {!showEmptyCard && nearby.withinRange && !nearby.configured ? (

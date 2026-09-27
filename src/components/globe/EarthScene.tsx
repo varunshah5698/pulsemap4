@@ -75,7 +75,9 @@ const LOCAL_DISTANCE = 1.5;
 export type GlobeCommand =
   | { kind: "focus"; lat: number; lng: number; distance?: number; nonce: number }
   | { kind: "zoom"; factor: number; nonce: number }
-  | { kind: "reset"; nonce: number };
+  | { kind: "reset"; nonce: number }
+  /** Jump without the travel animation — used when returning from the 2D map. */
+  | { kind: "centre"; lat: number; lng: number; distance?: number; nonce: number };
 
 /** Written a few times a second for the UI; never read by the frame loop. */
 export type GlobeView = {
@@ -107,6 +109,8 @@ export type EarthGlobeProps = {
   command: GlobeCommand | null;
   currentLocation: CurrentLocation;
   autoSpin: boolean;
+  /** True while the flat map is on screen and this scene is only being kept warm. */
+  paused?: boolean;
   screenRef: RefObject<GlobeScreenSignal>;
   viewRef: RefObject<GlobeView>;
   onFocusArrived: () => void;
@@ -416,6 +420,24 @@ function GlobeScene({
       lastNonce.current = command.nonce;
       if (command.kind === "focus") {
         beginTravel(command.lat, command.lng, command.distance ?? 2.35);
+      } else if (command.kind === "centre") {
+        // Hand-back from the 2D map: land exactly where the map was, at once.
+        latLngToVector3(command.lat, command.lng, GLOBE_RADIUS, temps.target);
+        const aim = rotationToFace(temps.target);
+        c.spin.x = aim.x;
+        c.spin.y = aim.y;
+        c.spin.velocityX = 0;
+        c.spin.velocityY = 0;
+        c.spin.idle = 0;
+        c.travel = null;
+        if (typeof command.distance === "number") {
+          c.targetDistance = THREE.MathUtils.clamp(
+            command.distance,
+            MIN_DISTANCE,
+            MAX_DISTANCE,
+          );
+        }
+        c.interactionAt = nowMs;
       } else if (command.kind === "zoom") {
         c.targetDistance = THREE.MathUtils.clamp(
           c.targetDistance * command.factor,
@@ -834,6 +856,9 @@ export const EarthGlobe = memo(function EarthGlobe(props: EarthGlobeProps) {
           alpha: true,
         }}
         flat
+        // "never" stops drawing without tearing the scene down, so the camera,
+        // the loaded textures and the memories survive a trip to the flat map.
+        frameloop={props.paused ? "never" : "always"}
         onCreated={({ gl }) => {
           gl.setClearAlpha(0);
         }}
