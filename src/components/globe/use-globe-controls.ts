@@ -52,6 +52,18 @@ const PINCH_PAN_SPEED = 0.0032;
 export const TAP_THRESHOLD = 6;
 /** Auto-rotation only returns after this long without any input. */
 export const AUTO_RESUME_MS = 5200;
+/**
+ * A flick is a nudge, not a throw. The globe has to stop where the person
+ * lets go of it — momentum that runs on for seconds reads as the Earth
+ * slipping out of their hand.
+ */
+const MAX_FLICK_SPEED = 1.15;
+/** How much of the drag's speed survives release. */
+const FLICK_TRANSFER = 0.085;
+/** How much one pixel of wheel travel moves the camera. */
+const WHEEL_PER_PIXEL = 0.0012;
+/** A trackpad pinch sends small deltas; they need a firmer hand. */
+const PINCH_WHEEL_PER_PIXEL = 0.008;
 
 const IDLE_VIEW = { x: 0.24, y: -0.9 };
 
@@ -155,9 +167,9 @@ export function useGlobeControls(element: HTMLElement | null) {
 
       c.spin.y += dx * DRAG_SPEED;
       c.spin.x += dy * DRAG_SPEED;
-      // Remember the flick so release keeps momentum.
-      c.spin.velocityY = (dx / 0.016) * DRAG_SPEED * 0.35;
-      c.spin.velocityX = (dy / 0.016) * DRAG_SPEED * 0.35;
+      // Remember the flick so release keeps a *little* momentum.
+      c.spin.velocityY = THREE.MathUtils.clamp(dx * FLICK_TRANSFER, -MAX_FLICK_SPEED, MAX_FLICK_SPEED);
+      c.spin.velocityX = THREE.MathUtils.clamp(dy * FLICK_TRANSFER, -MAX_FLICK_SPEED, MAX_FLICK_SPEED);
       c.travel = null;
       touch();
     };
@@ -218,11 +230,21 @@ export function useGlobeControls(element: HTMLElement | null) {
 
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
-      // Trackpad pinch arrives as a wheel with ctrlKey set.
-      const sensitivity = event.ctrlKey ? 0.01 : 0.0012;
-      c.targetDistance = clampDistance(
-        c.targetDistance * Math.exp(event.deltaY * sensitivity),
-      );
+
+      // Devices disagree wildly about what a "scroll" is: a notch, a line, a
+      // page, or a stream of tiny trackpad deltas. Normalise all of them to
+      // pixels, then cap a single event, so one gesture is one predictable step
+      // instead of a lurch into orbit.
+      const lines = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1;
+      const raw = event.deltaY * lines;
+      // Trackpad pinch arrives as a wheel with ctrlKey set, in much finer steps.
+      const pixels = event.ctrlKey
+        ? THREE.MathUtils.clamp(raw, -30, 30)
+        : THREE.MathUtils.clamp(raw, -200, 200);
+      const step =
+        pixels * (event.ctrlKey ? PINCH_WHEEL_PER_PIXEL : WHEEL_PER_PIXEL);
+
+      c.targetDistance = clampDistance(c.targetDistance * Math.exp(step));
       c.travel = null;
       touch();
     };

@@ -14,6 +14,7 @@ import { NavigationControls, PlaceCategories, ViewChip, formatLatLng } from "@/c
 import { GlobeFilters, type GlobeScope } from "@/components/globe/GlobeFilters";
 import { MemoryConnector, MemoryNotification } from "@/components/globe/MemoryNotification";
 import type { GlobePin } from "@/components/globe/Markers";
+import { NearbyPlaces } from "@/components/globe/NearbyPlaces";
 import { PlaceMap2D, type Map2DView } from "@/components/globe/PlaceMap2D";
 import { PlacePanel, type PlaceMemoryLink, type PlaceSummary } from "@/components/globe/PlacePanel";
 import { PlaceSearch } from "@/components/globe/PlaceSearch";
@@ -201,6 +202,7 @@ export default function MapPage() {
         spanKm: source.spanKm,
         distance: distanceFor(source.spanKm),
         local: true,
+        moving: false,
       });
       setMode("map");
     },
@@ -210,12 +212,14 @@ export default function MapPage() {
   /** What the flat map is looking at, reported once it settles. */
   const handleMapView = useCallback(
     (next: Map2DView) => {
+      // The map only reports once it has settled, so this is never mid-gesture.
       setMapView({
         lat: next.lat,
         lng: next.lng,
         spanKm: next.spanKm,
         distance: distanceFor(next.spanKm),
         local: true,
+        moving: false,
       });
     },
     [distanceFor],
@@ -324,11 +328,11 @@ export default function MapPage() {
         lng: place.lng,
         rating: place.rating,
         reviewCount: place.reviewCount,
-        distanceKm:
-          place.distanceKm ??
-          haversineKm(effectiveView.lat, effectiveView.lng, place.lat, place.lng),
+        // `around` already gives us a distance from the queried centre, so the
+        // marker list does not have to be rebuilt every time the camera moves.
+        distanceKm: place.distanceKm ?? 0,
       })),
-    [effectiveView.lat, effectiveView.lng, placeById],
+    [placeById],
   );
 
   /**
@@ -337,18 +341,22 @@ export default function MapPage() {
    */
   const labelLevel =
     effectiveView.spanKm <= 45 ? 3 : effectiveView.spanKm <= 130 ? 2 : 1;
+  // Names are picked against a coarse centre: a drifting camera should not
+  // reshuffle every label four times a second.
+  const labelLat = Number(effectiveView.lat.toFixed(1));
+  const labelLng = Number(effectiveView.lng.toFixed(1));
   const labelIds = useMemo(() => {
     if (labelLevel === 1) return [];
     const count = labelLevel === 3 ? 14 : 8;
     return [...globePlaces]
       .sort(
         (a, b) =>
-          haversineKm(effectiveView.lat, effectiveView.lng, a.lat, a.lng) -
-          haversineKm(effectiveView.lat, effectiveView.lng, b.lat, b.lng),
+          haversineKm(labelLat, labelLng, a.lat, a.lng) -
+          haversineKm(labelLat, labelLng, b.lat, b.lng),
       )
       .slice(0, count)
       .map((place) => place.id);
-  }, [globePlaces, labelLevel, effectiveView.lat, effectiveView.lng]);
+  }, [globePlaces, labelLat, labelLevel, labelLng]);
 
   /**
    * Real places the person has a memory at. This is the one marker we promote:
@@ -513,6 +521,9 @@ export default function MapPage() {
   const empty = !loading && memories.length === 0;
   const showEmptyCard = empty && effectiveView.spanKm > PLACES_SPAN_KM;
   const scopes = nearby.config?.scopes ?? [];
+  // Typed through PlaceSummary so a field the panel needs can never quietly
+  // go missing from the serialised rows.
+  const nearbyList: PlaceSummary[] = nearby.rows;
 
   return (
     <div className="pm-dark flex min-h-dvh flex-col bg-[#0f0f11]">
@@ -658,11 +669,16 @@ export default function MapPage() {
                 active={cardShown && current !== null && !selected && mode === "globe"}
               />
 
-              {/* Search, categories and the memory filters */}
-              <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 lg:top-4 lg:right-auto lg:left-4 lg:w-[430px]">
-                <div className="pm-panel pointer-events-auto max-h-[52vh] overflow-y-auto p-3 backdrop-blur-xl lg:max-h-none">
+              {/*
+                One rail, not three floating cards: search, categories, the
+                real places around here, the memory filters and the recent list
+                all stack in a single column, so nothing can land on top of
+                anything else.
+              */}
+              <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 flex max-h-[58vh] flex-col gap-3 lg:top-4 lg:bottom-4 lg:left-4 lg:max-h-none lg:w-[400px] lg:right-auto">
+                <div className="pm-panel pointer-events-auto flex min-h-0 flex-1 flex-col overflow-y-auto p-3 backdrop-blur-xl">
                   <PlaceSearch
-                    view={view}
+                    view={effectiveView}
                     configured={nearby.configured}
                     results={searchResults}
                     onSelect={openPlace}
@@ -686,6 +702,23 @@ export default function MapPage() {
                     </div>
                   ) : null}
 
+                  {scopes.length > 0 ? (
+                    <div className="mt-3 border-t border-white/[0.07] pt-3">
+                      <p className="mb-2 text-[10px] font-bold tracking-[0.18em] text-white/40 uppercase">
+                        Nearby
+                      </p>
+                      <NearbyPlaces
+                        places={nearbyList}
+                        activeId={selected?.id ?? null}
+                        loading={nearby.loading}
+                        configured={nearby.configured}
+                        withinRange={nearby.withinRange}
+                        error={nearby.error}
+                        onSelect={openPlace}
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="mt-3 border-t border-white/[0.07] pt-3">
                     <GlobeFilters
                       search={memorySearch}
@@ -705,11 +738,6 @@ export default function MapPage() {
                       memories={globePins.length}
                       places={globePlaces.length}
                     />
-                    {nearby.error ? (
-                      <p className="mt-2 text-[11px] leading-5 text-[#ffb4b4]">
-                        {nearby.error}
-                      </p>
-                    ) : null}
                     {locationNote ? (
                       <p className="mt-2 text-[11px] leading-5 text-white/45">
                         {locationNote}
@@ -717,9 +745,20 @@ export default function MapPage() {
                     ) : null}
                   </div>
                 </div>
+
+                {/* The recent list lives in the same column, so it cannot
+                    sit on top of the search and filters. */}
+                <div className="pointer-events-auto hidden min-h-0 max-h-[36%] shrink-0 overflow-y-auto lg:block">
+                  <RecentMemories
+                    pins={globePins}
+                    activeId={current?._id ?? null}
+                    onSelect={flyTo}
+                    onAdd={() => openDialog()}
+                  />
+                </div>
               </div>
 
-              {/* Manual navigation, always in reach — the globe's own, that is. */}
+              {/* Manual navigation, out of the way of the panel and the rail. */}
               {mode === "globe" ? (
                 <NavigationControls
                   onZoomIn={() => zoomBy(0.72)}
@@ -729,32 +768,23 @@ export default function MapPage() {
                   locating={locating}
                   autoSpin={autoSpin}
                   onToggleAutoSpin={() => setAutoSpin((value) => !value)}
-                  className="absolute top-1/2 right-3 z-30 -translate-y-1/2 lg:right-5"
+                  className="absolute right-3 bottom-20 z-30 lg:right-4 lg:bottom-4"
                 />
               ) : (
                 <button
                   type="button"
                   onClick={showGlobe}
-                  className="pm-panel absolute top-1/2 right-3 z-30 flex -translate-y-1/2 items-center gap-2 px-3.5 py-2.5 text-[12px] font-semibold text-white/80 backdrop-blur-xl transition-colors hover:text-white lg:right-5"
+                  className="pm-panel absolute right-3 bottom-20 z-30 flex items-center gap-2 px-3.5 py-2.5 text-[12px] font-semibold text-white/80 backdrop-blur-xl transition-colors hover:text-white lg:right-4 lg:bottom-4"
                 >
                   <Globe2 className="size-3.5 text-[#ff6a2c]" aria-hidden="true" />
                   Back to globe
                 </button>
               )}
 
-              <div className="absolute bottom-4 left-4 z-30 hidden w-[280px] lg:block">
-                <RecentMemories
-                  pins={globePins}
-                  activeId={current?._id ?? null}
-                  onSelect={flyTo}
-                  onAdd={() => openDialog()}
-                />
-              </div>
-
               <div
                 className={cn(
                   "absolute inset-x-3 bottom-3 z-30 lg:hidden",
-                  showEmptyCard && "hidden",
+                  (showEmptyCard || (cardShown && current !== null)) && "hidden",
                 )}
               >
                 <RecentStrip

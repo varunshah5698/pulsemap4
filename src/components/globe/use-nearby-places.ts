@@ -9,7 +9,10 @@ import type { GlobePlace } from "./PlaceMarkers";
  *
  * Cost control lives here:
  *  - nothing is asked for while the globe is zoomed out to the planet;
- *  - the query waits until the camera has settled (650 ms of stillness);
+ *  - nothing is asked for while the camera is still moving — including the
+ *    globe's own idle drift, which otherwise never stopped moving and so never
+ *    let a request through at all;
+ *  - once it does stop, the query waits 650 ms of stillness;
  *  - the same cell and filter is never asked twice (the backend also keeps a
  *    scan ledger, so revisiting an area is free);
  *  - results come from our own cache and are read reactively.
@@ -37,12 +40,24 @@ export type PlacesConfig = {
 
 type NearbyArgs = { lat: number; lng: number; radiusKm: number };
 
-function useDebounced<T>(value: T, delay: number): T {
-  const [settled, setSettled] = useState(value);
+/**
+ * The last area worth asking about.
+ *
+ * Different from a plain debounce: while the camera is moving we *hold* what we
+ * already have rather than resetting to nothing, so the places on screen do not
+ * blink out every time the globe turns.
+ */
+function useSettled<T>(value: T | null, paused: boolean, delay: number): T | null {
+  const [settled, setSettled] = useState<T | null>(value);
   useEffect(() => {
+    if (value === null) {
+      setSettled(null);
+      return;
+    }
+    if (paused) return;
     const timer = window.setTimeout(() => setSettled(value), delay);
     return () => window.clearTimeout(timer);
-  }, [value, delay]);
+  }, [paused, value, delay]);
   return settled;
 }
 
@@ -73,7 +88,7 @@ export function useNearbyPlaces({
     };
   }, [configured, enabled, view.lat, view.lng, view.spanKm, withinRange]);
 
-  const settled = useDebounced(args, DEBOUNCE_MS);
+  const settled = useSettled(args, view.moving, DEBOUNCE_MS);
   const rows = useQuery(
     api.places.around,
     settled ? { ...settled, category } : "skip",

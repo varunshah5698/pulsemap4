@@ -39,6 +39,10 @@ export type PlaceSummary = {
   googleMapsUri: string | null;
   hasPhoto: boolean;
   photos: string[];
+  /** A picture we can point an <img> at — Google's proxy or a licensed one. */
+  photoUrl: string | null;
+  photoCredit: string | null;
+  photoPageUrl: string | null;
   openNow: boolean | null;
   hours: string[];
   summary: string | null;
@@ -170,8 +174,13 @@ export function PlacePanel({
     }
   }
 
-  const photoUrl =
+  // Google's own photo if the key is entitled to it, otherwise whatever
+  // licensed photograph the backend matched to this exact place. Either way it
+  // is the real building, and the credit follows it.
+  const googlePhotoUrl =
     photoBase && place?.photos.length ? `${photoBase}${encodeURIComponent(place.photos[0])}` : null;
+  const photoUrl = place?.photoUrl ?? googlePhotoUrl;
+  const photoCredit = place?.photoUrl ? place.photoCredit : null;
   const directions = place
     ? `https://www.google.com/maps/dir/?api=1&destination=${place.lat},${place.lng}&destination_place_id=${encodeURIComponent(place.id)}`
     : "#";
@@ -186,7 +195,7 @@ export function PlacePanel({
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: 18, scale: 0.98 }}
           transition={SPRING}
-          className="pm-dark pointer-events-auto fixed inset-x-3 bottom-3 z-50 flex max-h-[78vh] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#141419]/97 shadow-[0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl lg:absolute lg:inset-x-auto lg:top-4 lg:right-5 lg:bottom-4 lg:z-40 lg:max-h-none lg:w-[368px]"
+          className="pm-dark pointer-events-auto fixed inset-x-3 bottom-3 z-50 flex max-h-[78vh] flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#141419]/97 shadow-[0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl lg:absolute lg:inset-x-auto lg:top-4 lg:right-4 lg:bottom-auto lg:z-40 lg:max-h-[calc(100%-6.5rem)] lg:w-[368px]"
           aria-label={`${place.name} details`}
         >
           <span className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-white/15 lg:hidden" />
@@ -248,18 +257,36 @@ export function PlacePanel({
             )}
 
             {photoUrl ? (
-              <img
-                src={photoUrl}
-                alt=""
-                loading="lazy"
-                className="mt-4 h-44 w-full rounded-2xl border border-white/[0.08] object-cover"
-              />
+              <figure className="mt-4">
+                <img
+                  src={photoUrl}
+                  alt={place.name}
+                  loading="lazy"
+                  className="h-48 w-full rounded-2xl border border-white/[0.08] object-cover"
+                />
+                {photoCredit ? (
+                  <figcaption className="mt-1.5 text-[10.5px] text-white/35">
+                    Photo:{" "}
+                    <a
+                      href={place.photoPageUrl ?? "https://commons.wikimedia.org"}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline hover:text-white/60"
+                    >
+                      {photoCredit}
+                    </a>{" "}
+                    — not from Google
+                  </figcaption>
+                ) : null}
+              </figure>
             ) : (
               <div
-                className="mt-4 grid h-24 w-full place-items-center rounded-2xl border border-white/[0.08] text-[11px] text-white/40"
+                className="mt-4 grid h-24 w-full place-items-center rounded-2xl border border-white/[0.08] px-4 text-center text-[11px] leading-4 text-white/40"
                 style={{ background: `linear-gradient(150deg, ${visual?.color}22, transparent)` }}
               >
-                {resolving ? "Loading Google photos…" : "No Google photo for this place"}
+                {resolving
+                  ? "Looking for a photograph…"
+                  : "No photograph available for this place yet"}
               </div>
             )}
 
@@ -449,6 +476,22 @@ export function PlacePanel({
                   View on Google Maps
                 </a>
               </div>
+              {place.types.length > 1 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {place.types
+                    .filter((type) => type !== place.category)
+                    .slice(0, 5)
+                    .map((type) => (
+                      <span
+                        key={type}
+                        className="rounded-full border border-white/10 px-2 py-0.5 text-[10.5px] text-white/50"
+                      >
+                        {type.replace(/_/g, " ")}
+                      </span>
+                    ))}
+                </div>
+              ) : null}
+
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-white/40">
                 <span>
                   {place.lat.toFixed(5)}, {place.lng.toFixed(5)}

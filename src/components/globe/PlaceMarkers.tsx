@@ -5,8 +5,11 @@ import { GLOBE_RADIUS, latLngToVector3, quaternionFromNormal } from "./geo";
 import { fallbackLabel, placeVisual } from "./place-categories";
 import { getPlaceTexture } from "./textures";
 
-/** World size at the resting camera distance; the frame loop keeps it constant on screen. */
-export const PLACE_SPRITE = 0.055;
+/**
+ * World size at the resting camera distance; the frame loop keeps it constant
+ * on screen. Sized to be comfortably tappable, not just visible.
+ */
+export const PLACE_SPRITE = 0.068;
 
 /** A real place, as the globe needs it. */
 export type GlobePlace = {

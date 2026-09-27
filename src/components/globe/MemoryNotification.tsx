@@ -131,7 +131,7 @@ export function MemoryNotification({
   return (
     <AnimatePresence>
       {memory && shown ? (
-        <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 lg:absolute lg:bottom-auto lg:left-auto lg:top-1/2 lg:right-5 lg:w-[336px] lg:-translate-y-1/2">
+        <div className="pointer-events-none fixed inset-x-4 bottom-4 z-40 lg:absolute lg:top-4 lg:right-4 lg:bottom-auto lg:left-auto lg:w-[336px]">
           <motion.div
             ref={cardRef}
             initial={{ opacity: 0, scale: 0.92, y: 20 }}

@@ -9,6 +9,7 @@ import {
   type ActionCtx,
 } from "./_generated/server";
 import { requireUserId } from "./access";
+import { findWikimediaPhoto } from "./wikimedia";
 
 /* ------------------------------------------------------------------ *
  * Real places, straight from Google Maps Platform.
@@ -322,6 +323,11 @@ type PlaceRow = {
   hours?: string[];
   summary?: string;
   types?: string[];
+  /** A picture we can point an <img> at, from Google or a licensed source. */
+  photoUrl?: string;
+  photoCredit?: string;
+  photoPageUrl?: string;
+  photoChecked?: boolean;
   fetchedAt: number;
   detailsAt?: number;
 };
@@ -653,6 +659,9 @@ function serializePlace(row: Doc<"places">, centre?: { lat: number; lng: number 
     googleMapsUri: row.googleMapsUri ?? null,
     hasPhoto: (row.photos?.length ?? 0) > 0,
     photos: row.photos ?? [],
+    photoUrl: row.photoUrl ?? null,
+    photoCredit: row.photoCredit ?? null,
+    photoPageUrl: row.photoPageUrl ?? null,
     openNow: row.openNow ?? null,
     hours: row.hours ?? [],
     summary: row.summary ?? null,
@@ -1055,6 +1064,51 @@ export const resolve = action({
         message: "That place could not be cached.",
       };
     }
+
+    // Google's own photos are not enabled on every key. Rather than show an
+    // empty frame, look for a licensed photograph of the same place — once,
+    // then it is cached on the row like everything else.
+    if (!stored.photoUrl && !stored.photoChecked) {
+      const photo = await findWikimediaPhoto(stored.name, stored.lat, stored.lng);
+      await ctx.runMutation(internal.places.setPhoto, {
+        googlePlaceId: stored.googlePlaceId,
+        photoUrl: photo?.url,
+        photoCredit: photo?.credit,
+        photoPageUrl: photo?.pageUrl,
+      });
+      const withPhoto: Doc<"places"> | null = await ctx.runQuery(internal.places.byGoogleId, {
+        googlePlaceId: args.placeId,
+      });
+      return {
+        ok: true as const,
+        cached: false,
+        place: serializePlace(withPhoto ?? stored),
+      };
+    }
+
     return { ok: true as const, cached: false, place: serializePlace(stored) };
+  },
+});
+
+/** Record the picture we found for a place, or that we looked and found none. */
+export const setPhoto = internalMutation({
+  args: {
+    googlePlaceId: v.string(),
+    photoUrl: v.optional(v.string()),
+    photoCredit: v.optional(v.string()),
+    photoPageUrl: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("places")
+      .withIndex("by_google_id", (q) => q.eq("googlePlaceId", args.googlePlaceId))
+      .first();
+    if (!row) return;
+    await ctx.db.patch(row._id, {
+      photoUrl: args.photoUrl,
+      photoCredit: args.photoCredit,
+      photoPageUrl: args.photoPageUrl,
+      photoChecked: true,
+    });
   },
 });

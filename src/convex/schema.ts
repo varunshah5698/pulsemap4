@@ -179,6 +179,12 @@ const schema = defineSchema(
       googleMapsUri: v.optional(v.string()),
       /** Google photo resource names; images stream through our own proxy. */
       photos: v.optional(v.array(v.string())),
+      /** Direct picture URL, from Google's proxy or a licensed fallback. */
+      photoUrl: v.optional(v.string()),
+      photoCredit: v.optional(v.string()),
+      photoPageUrl: v.optional(v.string()),
+      /** True once we have looked for a photograph and come up empty. */
+      photoChecked: v.optional(v.boolean()),
       openNow: v.optional(v.boolean()),
       /** Weekday opening lines, exactly as Google words them. */
       hours: v.optional(v.array(v.string())),

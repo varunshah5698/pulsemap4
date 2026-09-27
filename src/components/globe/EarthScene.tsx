@@ -69,6 +69,16 @@ const DOUBLE_TAP_PX = 26;
 /** A single tap waits this long, so a double tap can zoom instead of pinning. */
 const PICK_DELAY_MS = 240;
 /** Only advertise the camera as "close" once it is genuinely near the ground. */
+/**
+ * Below this height the globe stops turning on its own.
+ *
+ * The slow drift belongs to the view from space. Once someone has descended
+ * into a country or a city, ground that slides away by itself is the opposite
+ * of what they want — and it also means the camera finally stands still long
+ * enough to ask Google about the real places in front of them.
+ */
+const IDLE_MIN_DISTANCE = 1.32;
+
 const LOCAL_DISTANCE = 1.5;
 
 /** What the frame loop must do next. Nonces make replays idempotent. */
@@ -88,7 +98,13 @@ export type GlobeView = {
   spanKm: number;
   /** True when the camera is low enough to bother Google about places. */
   local: boolean;
-}; 
+  /**
+   * True while the camera is genuinely on the move — a drag, a flick, a zoom
+   * or the idle drift. Asking Google for places mid-motion wastes requests on
+   * ground nobody is looking at, so the UI waits for a still camera.
+   */
+  moving: boolean;
+};
 
 export type CurrentLocation = { lat: number; lng: number } | null;
 
@@ -346,6 +362,9 @@ function GlobeScene({
     c.spin.idle = 0;
     c.spin.velocityY = 0;
     c.spin.velocityX = 0;
+    // Arriving somewhere on purpose counts as an interaction, so the globe
+    // does not start sliding away the moment it gets there.
+    c.interactionAt = performance.now();
     c.targetDistance = THREE.MathUtils.clamp(distance, MIN_DISTANCE, MAX_DISTANCE);
     c.glow = 1;
     regionGlow.current?.position.copy(temps.target);
@@ -356,7 +375,11 @@ function GlobeScene({
    * click, which dives toward that place instead. Google-Earth behaviour.
    */
   const handleSurfaceClick = (event: ThreeEvent<MouseEvent>) => {
-    if (controls.current.dragged) return;
+    const c = controls.current;
+    if (c.dragged) return;
+    // While the globe is still coasting, a tap is far more likely to be someone
+    // stopping it than dropping a pin — so it must not open the pin dialog.
+    if (Math.abs(c.spin.velocityY) > 0.08 || Math.abs(c.spin.velocityX) > 0.08) return;
     event.stopPropagation();
 
     const node = group.current;
@@ -377,7 +400,6 @@ function GlobeScene({
 
     if (isDouble) {
       lastClick.current = null;
-      const c = controls.current;
       beginTravel(lat, lng, Math.max(MIN_DISTANCE, c.distance * 0.5));
       return;
     }
@@ -486,7 +508,10 @@ function GlobeScene({
       c.spin.velocityX *= decay;
     } else if (!c.dragging && !c.pinching && time > resumeAt.current) {
       // Auto-rotation only ever happens when nobody is holding the globe.
-      const settled = autoSpin && nowMs - c.interactionAt > AUTO_RESUME_MS;
+      const settled =
+        autoSpin &&
+        c.distance > IDLE_MIN_DISTANCE &&
+        nowMs - c.interactionAt > AUTO_RESUME_MS;
       if (settled) {
         c.spin.idle = Math.min(1, c.spin.idle + d * IDLE_RAMP);
         c.spin.y += IDLE_SPEED * c.spin.idle * d;
@@ -577,6 +602,14 @@ function GlobeScene({
       viewRef.current.distance = c.distance;
       viewRef.current.spanKm = spanKm;
       viewRef.current.local = c.distance <= LOCAL_DISTANCE;
+      viewRef.current.moving =
+        c.dragging ||
+        c.pinching ||
+        c.travel !== null ||
+        c.spin.idle > 0.05 ||
+        Math.abs(c.spin.velocityY) > 0.02 ||
+        Math.abs(c.spin.velocityX) > 0.02 ||
+        Math.abs(c.distance - c.targetDistance) > 0.01;
     }
 
     /* --- markers: occlusion, growth, hover, screen signal ------------- */
@@ -615,6 +648,8 @@ function GlobeScene({
         c.pointerInside && Math.hypot(ndc.x - c.pointer.x, ndc.y - c.pointer.y) < 0.1;
 
       if (nearPointer || handle.hovered) scale *= 1.2;
+      // A finger on a touch screen has no hover, so markers need to look
+      // tappable up close whether or not anything is pointing at them.
       if (isActive) scale *= 1.15;
       // Constant on screen: descending into a city must not turn pins into
       // continents, and zooming out must not lose them.

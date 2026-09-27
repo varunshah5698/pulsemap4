@@ -15,7 +15,7 @@ const MIN_MOVE_DEGREES = 0.4;
 const MIN_SPAN_RATIO = 0.12;
 
 export function createViewSignal(): GlobeView {
-  return { lat: 18, lng: 8, distance: 3.1, spanKm: 3400, local: false };
+  return { lat: 18, lng: 8, distance: 3.1, spanKm: 3400, local: false, moving: false };
 }
 
 export function useGlobeView(signal: RefObject<GlobeView>): GlobeView {
@@ -33,7 +33,7 @@ export function useGlobeView(signal: RefObject<GlobeView>): GlobeView {
       );
       const spanShift =
         Math.abs(next.spanKm - previous.spanKm) / Math.max(previous.spanKm, 1);
-      const flagChanged = next.local !== previous.local;
+      const flagChanged = next.local !== previous.local || next.moving !== previous.moving;
 
       if (!flagChanged && spanShift < MIN_SPAN_RATIO && movedDegrees < MIN_MOVE_DEGREES) {
         return;

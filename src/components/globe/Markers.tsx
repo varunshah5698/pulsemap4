@@ -68,7 +68,8 @@ type ClusterGroup = {
 };
 
 /** Coarser grouping the further out the camera is. */
-const CLUSTER_THRESHOLD = [0.085, 0.032, 0];
+/** Angular distance at which neighbouring memories merge, per zoom level. */
+const CLUSTER_THRESHOLD = [0.06, 0.018, 0];
 
 function buildMarkers(
   pins: GlobePin[],
@@ -223,9 +224,10 @@ const MarkerRow = memo(function MarkerRow({
   );
   const quaternion = useMemo(() => quaternionFromNormal(local.clone().normalize()), [local]);
 
-  // Photographs are pulled lazily: the person's own memories, plus whatever is
-  // being pointed at or just landed.
-  const wantsThumb = active || justAdded || hovered || pin.mine;
+  // A memory with a photograph shows it on the globe, always. That picture is
+  // the whole point of the pin — hiding it behind a hover nobody can perform on
+  // a touch screen makes the map look like dots on a ball.
+  const wantsThumb = active || justAdded || hovered || Boolean(pin.mediaUrl);
 
   useEffect(() => {
     const groupNode = group.current;
@@ -246,7 +248,7 @@ const MarkerRow = memo(function MarkerRow({
       justAdded,
       hovered: false,
       growthStart: justAdded ? -1 : 0,
-      thumbTarget: pin.mine ? 1 : 0,
+      thumbTarget: pin.mediaUrl ? (pin.mine ? 1 : 0.9) : 0,
     };
     handleRef.current = handle;
     const store = registry.current;
@@ -263,8 +265,8 @@ const MarkerRow = memo(function MarkerRow({
     if (!handle) return;
     handle.thumbMaterial = thumbMaterial.current;
     handle.mine = pin.mine;
-    handle.thumbTarget = pin.mine ? 1 : 0;
-  }, [pin.mine]);
+    handle.thumbTarget = pin.mediaUrl ? (pin.mine ? 1 : 0.9) : 0;
+  }, [pin.mediaUrl, pin.mine]);
 
   useEffect(() => {
     const handle = handleRef.current;

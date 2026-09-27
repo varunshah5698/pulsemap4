@@ -383,6 +383,38 @@
     box-shadow: 0 0 0 3px rgba(255, 106, 44, 0.35);
   }
 
+  /* --- The list of real places around the current view ---------------- */
+
+  .pm-nearby-row {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.6rem;
+    border-radius: 0.75rem;
+    border: 1px solid transparent;
+    padding: 0.35rem 0.45rem;
+    transition: background-color 160ms ease, border-color 160ms ease;
+  }
+
+  .pm-nearby-row:hover {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .pm-nearby-row.is-active {
+    border-color: rgba(255, 106, 44, 0.55);
+    background: rgba(255, 106, 44, 0.12);
+  }
+
+  .pm-nearby-thumb {
+    height: 2rem;
+    width: 2rem;
+    flex-shrink: 0;
+    border-radius: 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    object-fit: cover;
+    font-size: 0.8rem;
+  }
+
   /* --- The flat map, once the globe gets too close for a satellite texture --- */
 
   .pm-map-shell {
