@@ -10,7 +10,7 @@ export default function Signup() {
   return (
     <AuthStage
       headline={["Every place", "worth keeping", "belongs on a map."]}
-      support="Create an account and PulseMap holds the notes, the coordinates and the reminders until you need them again — a year, or ten years, from now."
+      support="Create an account and Pulsemap holds the notes, the coordinates and the reminders until you need them again — a year, or ten years, from now."
       navPrompt="Already have an account?"
       navLabel="Sign in"
       navHref="/login"

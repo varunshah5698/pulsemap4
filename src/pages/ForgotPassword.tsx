@@ -10,7 +10,7 @@ export default function ForgotPassword() {
   return (
     <AuthStage
       headline={["Getting back in", "takes six", "digits."]}
-      support="PulseMap has never stored a password for you, so there is nothing to reset. Enter the email address on your account and a fresh sign-in code is on its way."
+      support="Pulsemap has never stored a password for you, so there is nothing to reset. Enter the email address on your account and a fresh sign-in code is on its way."
       navPrompt="Remembered your way?"
       navLabel="Sign in"
       navHref="/login"

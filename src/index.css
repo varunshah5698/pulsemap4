@@ -206,32 +206,6 @@
   font-display: swap;
 }
 
-/* The map only ever renders inside the signed-in app chrome, so its tint,
-   controls and popups are styled in dashboard.css under `.pm-dark`. */
-.leaflet-container {
-  font-family: inherit;
-}
-.pulse-pin {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 999px;
-  border: 2px solid #fbfaf5;
-  box-shadow: 0 6px 14px rgba(23, 23, 15, 0.32);
-  color: #fbfaf5;
-  font-size: 12px;
-  font-weight: 700;
-  line-height: 1;
-}
-.pulse-pin--active {
-  transform: scale(1.25);
-  box-shadow:
-    0 0 0 4px rgba(194, 69, 45, 0.22),
-    0 8px 18px rgba(23, 23, 15, 0.36);
-}
-.pulse-pin-wrap {
-  background: transparent;
-  border: 0;
-}
+/* The live map is the three.js globe now: it renders inside the signed-in app
+   chrome, and its overlay styling lives in dashboard.css under `.pm-dark`. */
 

@@ -335,46 +335,57 @@
     background: var(--panel);
   }
 
-  /* --- The map, tuned for the dark chrome ---------------------------- */
+  /* --- The globe stage ------------------------------------------------ */
 
-  .pm-dark #pulse-map.leaflet-container {
-    background: #14141a;
-    border-radius: 24px;
+  /* Deep space behind the canvas: cold at the top, a warm horizon below. */
+  .pm-stage-sky {
+    background:
+      radial-gradient(120% 90% at 50% 118%, rgba(255, 106, 44, 0.14), transparent 62%),
+      radial-gradient(90% 70% at 50% -12%, rgba(63, 123, 255, 0.18), transparent 60%),
+      radial-gradient(140% 140% at 50% 50%, #0a0d16 0%, #05060b 68%, #030408 100%);
+  }
+
+  /* A haze of dust so the stage reads as space, not a flat panel. */
+  .pm-stage-sky::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(78% 68% at 50% 50%, transparent 42%, #000 100%);
+    -webkit-mask-image: radial-gradient(78% 68% at 50% 50%, transparent 42%, #000 100%);
+  }
+
+  /* Filmstrip thumbnails on phones. */
+  .pm-recent-thumb {
+    position: relative;
+    display: block;
+    height: 2.5rem;
+    width: 2.5rem;
+    flex: none;
     overflow: hidden;
-    font-family: inherit;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    opacity: 0.72;
+    transition:
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 220ms ease,
+      box-shadow 220ms ease;
   }
 
-  .pm-dark #pulse-map .leaflet-tile-pane {
-    filter: invert(1) hue-rotate(185deg) brightness(0.94) contrast(0.92) saturate(0.55);
+  .pm-recent-thumb:hover {
+    opacity: 1;
+    transform: translateY(-2px);
   }
 
-  .pm-dark #pulse-map .leaflet-control-zoom {
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-    border-radius: 14px !important;
-    overflow: hidden;
+  .pm-recent-thumb[data-active="true"] {
+    opacity: 1;
+    box-shadow: 0 0 0 3px rgba(255, 106, 44, 0.35);
   }
 
-  .pm-dark #pulse-map .leaflet-bar a {
-    background: #1b1b20 !important;
-    color: #ffffff !important;
-    border-color: rgba(255, 255, 255, 0.08) !important;
-  }
-
-  .pm-dark #pulse-map .leaflet-popup-content-wrapper,
-  .pm-dark #pulse-map .leaflet-popup-tip {
-    background: #1b1b20;
-    color: #ffffff;
-    border-radius: 16px;
-  }
-
-  .pm-dark .leaflet-control-attribution {
-    background: rgba(15, 15, 17, 0.86) !important;
-    color: rgba(255, 255, 255, 0.42) !important;
-    font-size: 10px !important;
-  }
-
-  .pm-dark .leaflet-control-attribution a {
-    color: #ff6a2c !important;
+  /* The card-to-marker line marching toward the memory. */
+  .pm-connector-flow {
+    animation: pm-connector 1.5s linear infinite;
   }
 
   /* --- Entrance ------------------------------------------------------ */
@@ -395,8 +406,22 @@
   }
 }
 
+@keyframes pm-connector {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pm-rise {
     animation: none !important;
+  }
+
+  .pm-connector-flow {
+    animation: none !important;
+  }
+
+  .pm-recent-thumb {
+    transition: none;
   }
 }

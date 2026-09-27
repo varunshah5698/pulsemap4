@@ -169,7 +169,7 @@ export const create = mutation({
       throw new Error("Drop the pin on the map first.");
     }
     const now = Date.now();
-    return await ctx.db.insert("memories", {
+    const memoryId = await ctx.db.insert("memories", {
       userId,
       title: title.slice(0, 120),
       note: args.note.trim().slice(0, 2000),
@@ -187,6 +187,12 @@ export const create = mutation({
       createdAt: now,
       updatedAt: now,
     });
+
+    // Hand the saved memory straight back, photograph URL included, so the
+    // globe can fly to it and the notification can show the real photo.
+    const created = await ctx.db.get(memoryId);
+    if (!created) throw new Error("The memory could not be read back.");
+    return await serialize(ctx, created);
   },
 });
 

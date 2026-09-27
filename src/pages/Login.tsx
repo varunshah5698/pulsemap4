@@ -28,7 +28,7 @@ export default function Login() {
         helper="No password to remember — we email a six-digit code that signs you straight in."
         redirectTo={redirectTo}
         codeTitle="Check your email."
-        switchPrompt="New to PulseMap?"
+        switchPrompt="New to Pulsemap?"
         switchLabel="Create an account"
         switchHref="/signup"
         underCard="Your map stays private until you decide to share a pin."

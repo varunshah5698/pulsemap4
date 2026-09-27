@@ -23,6 +23,19 @@ import { ImagePlus, Loader2, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TONES, TONE_META, toDateInputValue } from "./tone";
 
+/** The saved memory, handed to callers so the globe can react to it. */
+export type PinnedMemory = {
+  _id: string;
+  title: string;
+  note: string;
+  placeName: string;
+  happenedAt: number;
+  mediaUrl: string | null;
+  tone: string;
+  lat: number;
+  lng: number;
+};
+
 export function PinMemoryDialog({
   open,
   onOpenChange,
@@ -32,7 +45,7 @@ export function PinMemoryDialog({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   coords: { lat: number; lng: number } | null;
-  onPinned?: () => void;
+  onPinned?: (memory: PinnedMemory) => void;
 }) {
   const generateUploadUrl = useMutation(api.memories.generateUploadUrl);
   const createMemory = useMutation(api.memories.create);
@@ -121,7 +134,7 @@ export function PinMemoryDialog({
         mediaId = payload.storageId;
       }
 
-      await createMemory({
+      const created = await createMemory({
         title,
         note,
         placeName,
@@ -140,7 +153,17 @@ export function PinMemoryDialog({
 
       reset();
       onOpenChange(false);
-      onPinned?.();
+      onPinned?.({
+        _id: created._id,
+        title: created.title,
+        note: created.note,
+        placeName: created.placeName,
+        happenedAt: created.happenedAt,
+        mediaUrl: created.mediaUrl,
+        tone: created.tone,
+        lat: created.lat,
+        lng: created.lng,
+      });
     } catch (submitError) {
       setError(
         submitError instanceof Error

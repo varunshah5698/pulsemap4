@@ -91,7 +91,7 @@ export function AuthStage({
               to="/"
               className="font-display text-[26px] leading-none tracking-[-0.01em] text-white"
             >
-              PulseMap
+              Pulsemap
             </Link>
             <p className="mt-2 text-xs tracking-[0.02em] text-white/50">
               Travel differently.
