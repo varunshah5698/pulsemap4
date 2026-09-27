@@ -1,15 +1,21 @@
-import { Html } from "@react-three/drei";
 import { memo, useCallback, useMemo, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { GLOBE_RADIUS, latLngToVector3, quaternionFromNormal } from "./geo";
 import { fallbackLabel, placeVisual } from "./place-categories";
-import { getPlaceTexture } from "./textures";
+import { getLabelTexture, getPlaceTexture } from "./textures";
 
 /**
  * World size at the resting camera distance; the frame loop keeps it constant
  * on screen. Sized to be comfortably tappable, not just visible.
  */
 export const PLACE_SPRITE = 0.068;
+
+/** Name plate above a marker: a sprite, so it needs no DOM at all. */
+export const LABEL_WIDTH = 0.18;
+export const LABEL_HEIGHT = LABEL_WIDTH * (96 / 320);
+
+/** Labels are decoration: a tap has to reach the marker underneath. */
+const NO_RAYCAST = () => {};
 
 /** A real place, as the globe needs it. */
 export type GlobePlace = {
@@ -31,6 +37,7 @@ export function PlaceMarkers({
   activeId,
   onOpen,
   registry,
+  labelRegistry,
 }: {
   places: GlobePlace[];
   labelIds: string[];
@@ -39,6 +46,8 @@ export function PlaceMarkers({
   activeId: string | null;
   onOpen: (id: string) => void;
   registry: RefObject<Map<string, THREE.Sprite>>;
+  /** Name plates, kept apart so the frame loop can size them to the screen. */
+  labelRegistry: RefObject<Map<string, THREE.Sprite>>;
 }) {
   const labelled = useMemo(() => new Set(labelIds), [labelIds]);
   const promoted = useMemo(() => new Set(promotedIds), [promotedIds]);
@@ -54,6 +63,7 @@ export function PlaceMarkers({
           active={place.id === activeId}
           onOpen={onOpen}
           registry={registry}
+          labelRegistry={labelRegistry}
         />
       ))}
     </group>
@@ -67,6 +77,7 @@ const PlaceRow = memo(function PlaceRow({
   active,
   onOpen,
   registry,
+  labelRegistry,
 }: {
   place: GlobePlace;
   labelled: boolean;
@@ -74,6 +85,7 @@ const PlaceRow = memo(function PlaceRow({
   active: boolean;
   onOpen: (id: string) => void;
   registry: RefObject<Map<string, THREE.Sprite>>;
+  labelRegistry: RefObject<Map<string, THREE.Sprite>>;
 }) {
   const [hovered, setHovered] = useState(false);
   const visual = placeVisual(place.category);
@@ -100,11 +112,46 @@ const PlaceRow = memo(function PlaceRow({
     [place.id, registry],
   );
 
+  const attachLabel = useCallback(
+    (sprite: THREE.Sprite | null) => {
+      if (sprite) labelRegistry.current.set(place.id, sprite);
+      else labelRegistry.current.delete(place.id);
+    },
+    [labelRegistry, place.id],
+  );
+
   const label = place.categoryLabel ?? fallbackLabel(place.category);
   // A place that already holds one of your memories keeps its name on screen:
   // "I have actually been here" is the interesting fact, not the category.
   const showLabel = labelled || hovered || active || promoted;
-  const accent = promoted ? "#ff8a4d" : active ? visual.color : undefined;
+  const accent = promoted ? "#ff8a4d" : active ? visual.color : "rgba(255,255,255,0.16)";
+
+  const distance =
+    place.distanceKm !== null && place.distanceKm < 40
+      ? place.distanceKm < 1
+        ? `${Math.round(place.distanceKm * 1000)} m`
+        : `${place.distanceKm.toFixed(1)} km`
+      : null;
+  const subtitle = [
+    place.rating ? `★ ${place.rating.toFixed(1)}` : null,
+    label,
+    distance,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const labelTexture = useMemo(
+    () =>
+      showLabel
+        ? getLabelTexture({
+            title: place.name,
+            subtitle,
+            accent,
+            promoted,
+          })
+        : null,
+    [accent, place.name, promoted, showLabel, subtitle],
+  );
 
   return (
     <group position={position} quaternion={quaternion}>
@@ -124,35 +171,21 @@ const PlaceRow = memo(function PlaceRow({
         <spriteMaterial map={texture} transparent depthWrite={false} toneMapped={false} />
       </sprite>
 
-      {showLabel ? (
-        <Html
-          position={[0, 0, 0.028]}
-          center
-          zIndexRange={[18, 10]}
-          style={{ pointerEvents: "none" }}
+      {labelTexture ? (
+        <sprite
+          ref={attachLabel}
+          // Sits above the glyph, along the surface normal it is parented to.
+          position={[0, 0, 0.04]}
+          scale={[LABEL_WIDTH, LABEL_HEIGHT, 1]}
+          raycast={NO_RAYCAST}
         >
-          <div
-            className="pointer-events-none -translate-y-3 rounded-xl border border-white/12 bg-[#0d0d12]/92 px-2.5 py-1.5 text-center whitespace-nowrap shadow-[0_14px_32px_rgba(0,0,0,0.5)] backdrop-blur-md"
-            style={{ borderColor: accent }}
-          >
-            <p className="max-w-[190px] truncate text-[12px] leading-tight font-semibold text-white">
-              {promoted ? <span aria-hidden="true">✦ </span> : null}
-              {place.name}
-            </p>
-            <p className="mt-0.5 text-[10.5px] leading-tight text-white/55">
-              {place.rating ? `★ ${place.rating.toFixed(1)} · ` : ""}
-              {label}
-              {place.distanceKm !== null && place.distanceKm < 40
-                ? ` · ${place.distanceKm < 1 ? `${Math.round(place.distanceKm * 1000)} m` : `${place.distanceKm.toFixed(1)} km`}`
-                : ""}
-            </p>
-            {promoted ? (
-              <p className="mt-0.5 text-[10px] leading-tight font-semibold text-[#ff8a4d]">
-                your memory is here
-              </p>
-            ) : null}
-          </div>
-        </Html>
+          <spriteMaterial
+            map={labelTexture}
+            transparent
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </sprite>
       ) : null}
     </group>
   );

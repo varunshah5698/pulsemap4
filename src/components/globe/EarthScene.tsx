@@ -36,7 +36,13 @@ import {
 } from "./shaders";
 import { getGlowTexture, getLocationTexture } from "./textures";
 import { Markers, type GlobePin, type MarkerHandle } from "./Markers";
-import { PlaceMarkers, PLACE_SPRITE, type GlobePlace } from "./PlaceMarkers";
+import {
+  LABEL_HEIGHT,
+  LABEL_WIDTH,
+  PlaceMarkers,
+  PLACE_SPRITE,
+  type GlobePlace,
+} from "./PlaceMarkers";
 import { AUTO_RESUME_MS, useGlobeControls } from "./use-globe-controls";
 
 /* ------------------------------------------------------------------ *
@@ -113,6 +119,9 @@ export type GlobeFocusRequest = { id: string; lat: number; lng: number; nonce: n
 /** Written every frame for the focused memory, read by the connector line. */
 export type GlobeScreenSignal = { x: number; y: number; visible: boolean };
 
+/** Written every frame for the marker under the cursor, read by the hover card. */
+export type GlobeHoverSignal = { id: string | null; x: number; y: number };
+
 export type EarthGlobeProps = {
   pins: GlobePin[];
   places: GlobePlace[];
@@ -128,6 +137,7 @@ export type EarthGlobeProps = {
   /** True while the flat map is on screen and this scene is only being kept warm. */
   paused?: boolean;
   screenRef: RefObject<GlobeScreenSignal>;
+  hoverRef?: RefObject<GlobeHoverSignal>;
   viewRef: RefObject<GlobeView>;
   onFocusArrived: () => void;
   onOpenMemory: (id: string) => void;
@@ -220,7 +230,11 @@ function GlobeScene({
   onOpenMemory,
   onOpenPlace,
   onPickLocation,
+  hoverRef,
 }: EarthGlobeProps) {
+  /** Written every frame; only read by whoever draws the hover card. */
+  const localHoverRef = useRef<GlobeHoverSignal>({ id: null, x: 0, y: 0 });
+  const hoverSignal = hoverRef ?? localHoverRef;
   const gl = useThree((state) => state.gl);
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -236,6 +250,7 @@ function GlobeScene({
   const locationMaterial = useRef<THREE.SpriteMaterial>(null);
   const registry = useRef<Map<string, MarkerHandle>>(new Map());
   const placeRegistry = useRef<Map<string, THREE.Sprite>>(new Map());
+  const placeLabelRegistry = useRef<Map<string, THREE.Sprite>>(new Map());
 
   const [clusterLevel, setClusterLevel] = useState(2);
   const levelRef = useRef(2);
@@ -615,6 +630,9 @@ function GlobeScene({
     /* --- markers: occlusion, growth, hover, screen signal ------------- */
     const camPos = cameraNode.position;
     const zoomScale = markerZoomScale(c.distance);
+    let hoveredId: string | null = null;
+    let hoveredX = 0;
+    let hoveredY = 0;
     for (const handle of registry.current.values()) {
       const object = handle.group;
       object.getWorldPosition(temps.world);
@@ -681,15 +699,26 @@ function GlobeScene({
         );
       }
 
+      const screenX = (ndc.x * 0.5 + 0.5) * size.width;
+      const screenY = (-ndc.y * 0.5 + 0.5) * size.height;
       if (isActive) {
-        screenRef.current.x = (ndc.x * 0.5 + 0.5) * size.width;
-        screenRef.current.y = (-ndc.y * 0.5 + 0.5) * size.height;
+        screenRef.current.x = screenX;
+        screenRef.current.y = screenY;
         screenRef.current.visible = true;
+      }
+      // Publish the marker under the cursor; the page draws its card in DOM.
+      if (handle.hovered) {
+        hoveredId = handle.id;
+        hoveredX = screenX;
+        hoveredY = screenY;
       }
     }
     if (activeId && !registry.current.has(activeId) && !c.travel) {
       screenRef.current.visible = false;
     }
+    hoverSignal.current.id = hoveredId;
+    hoverSignal.current.x = hoveredX;
+    hoverSignal.current.y = hoveredY;
 
     /* --- real places: same occlusion, quieter than a memory ----------- */
     for (const [id, sprite] of placeRegistry.current) {
@@ -709,6 +738,15 @@ function GlobeScene({
       const material = sprite.material as THREE.SpriteMaterial;
       material.opacity = edge * (isActive ? 1 : 0.9);
       material.depthTest = true;
+
+      // The name plate is a sprite too, so it has to be held at a constant size
+      // on screen by the same zoom scale — otherwise it would swell to cover
+      // the planet the moment someone descended into a city.
+      const plate = placeLabelRegistry.current.get(id);
+      if (plate) {
+        plate.scale.set(LABEL_WIDTH * zoomScale * pulse, LABEL_HEIGHT * zoomScale * pulse, 1);
+        (plate.material as THREE.SpriteMaterial).opacity = edge;
+      }
     }
 
     /* --- where the person actually is --------------------------------- */
@@ -805,6 +843,7 @@ function GlobeScene({
           activeId={activePlaceId}
           onOpen={onOpenPlace}
           registry={placeRegistry}
+          labelRegistry={placeLabelRegistry}
         />
 
         {localPoint ? (

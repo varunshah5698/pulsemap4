@@ -1,4 +1,4 @@
-import { Billboard, Html } from "@react-three/drei";
+import { Billboard } from "@react-three/drei";
 import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import * as THREE from "three";
 import { toneMeta } from "@/components/pulsemap/tone";
@@ -342,39 +342,11 @@ const MarkerRow = memo(function MarkerRow({
 
       <ThumbnailTexture url={pin.mediaUrl} enabled={wantsThumb} material={thumbMaterial} />
 
-      {/* Hover label: the photograph, the place, the note's first line. */}
-      {hovered ? (
-        <Html
-          position={[0, 0, 0.1]}
-          center
-          zIndexRange={[24, 12]}
-          style={{ pointerEvents: "none" }}
-        >
-          <div className="pointer-events-none flex w-44 items-center gap-3 rounded-2xl border border-white/15 bg-[#101014]/92 p-2.5 shadow-[0_18px_40px_rgba(0,0,0,0.55)] backdrop-blur-md">
-            {pin.mediaUrl ? (
-              <img
-                src={pin.mediaUrl}
-                alt=""
-                className="size-11 shrink-0 rounded-xl object-cover"
-                loading="lazy"
-              />
-            ) : (
-              <span
-                className="size-11 shrink-0 rounded-xl"
-                style={{ background: `linear-gradient(150deg, ${meta.hex}, ${meta.hex}44)` }}
-              />
-            )}
-            <span className="min-w-0">
-              <span className="block truncate text-[11px] font-semibold tracking-[0.1em] text-white/45 uppercase">
-                {saved ? "Saved place" : pin.placeName || "Unplaced"}
-              </span>
-              <span className="mt-0.5 block truncate text-[13px] font-semibold text-white">
-                {pin.title}
-              </span>
-            </span>
-          </div>
-        </Html>
-      ) : null}
+      {/*
+        The hover card itself is drawn by the page, outside the canvas, from the
+        screen position this marker publishes. Keeping it out of the scene means
+        no DOM node and no nested React root lives underneath the WebGL canvas.
+      */}
 
       {/* Invisible hit target: comfortable to hover, still a point on the globe. */}
       <mesh

@@ -7,9 +7,12 @@ import {
   EarthGlobe,
   type CurrentLocation,
   type GlobeCommand,
+  type GlobeHoverSignal,
   type GlobeScreenSignal,
   type GlobeView,
 } from "@/components/globe/EarthScene";
+import { GlobeHoverCard } from "@/components/globe/GlobeHoverCard";
+import { StageBoundary } from "@/components/globe/StageBoundary";
 import { NavigationControls, PlaceCategories, ViewChip, formatLatLng } from "@/components/globe/GlobeControls";
 import { GlobeFilters, type GlobeScope } from "@/components/globe/GlobeFilters";
 import { MemoryConnector, MemoryNotification } from "@/components/globe/MemoryNotification";
@@ -151,6 +154,7 @@ export default function MapPage() {
 
   /* --- camera ---------------------------------------------------------- */
   const screenRef = useRef<GlobeScreenSignal>({ x: 0, y: 0, visible: false });
+  const hoverRef = useRef<GlobeHoverSignal>({ id: null, x: 0, y: 0 });
   const viewSignal = useRef<GlobeView>(createViewSignal());
   const view = useGlobeView(viewSignal);
   const nonce = useRef(0);
@@ -622,25 +626,42 @@ export default function MapPage() {
                 className={cn("absolute inset-0", mode === "map" && "invisible")}
                 aria-hidden={mode === "map"}
               >
-                <EarthGlobe
-                  pins={globePins}
-                  places={globePlaces}
-                  labelIds={labelIds}
-                  promotedPlaceIds={promotedPlaceIds}
-                  activeId={current?._id ?? null}
-                  activePlaceId={selected?.id ?? null}
-                  justAddedId={current?.fresh ? current._id : null}
-                  command={command}
-                  currentLocation={currentLocation}
-                  autoSpin={autoSpin}
-                  paused={mode === "map"}
-                  screenRef={screenRef}
-                  viewRef={viewSignal}
-                  onFocusArrived={markArrived}
-                  onOpenMemory={openMemory}
-                  onOpenPlace={openPlaceById}
-                  onPickLocation={(next) => openDialog(next)}
-                />
+                <StageBoundary
+                  fallback={
+                    <div className="grid h-full w-full place-items-center bg-[#07080c] px-8 text-center">
+                      <div>
+                        <p className="text-sm font-semibold text-white">
+                          The globe had to step aside
+                        </p>
+                        <p className="mx-auto mt-2 max-w-sm text-xs leading-5 text-white/50">
+                          Your browser dropped the 3D view. Switch to the 2D map to keep
+                          exploring, or reload the page to bring the globe back.
+                        </p>
+                      </div>
+                    </div>
+                  }
+                >
+                  <EarthGlobe
+                    pins={globePins}
+                    places={globePlaces}
+                    labelIds={labelIds}
+                    promotedPlaceIds={promotedPlaceIds}
+                    activeId={current?._id ?? null}
+                    activePlaceId={selected?.id ?? null}
+                    justAddedId={current?.fresh ? current._id : null}
+                    command={command}
+                    currentLocation={currentLocation}
+                    autoSpin={autoSpin}
+                    paused={mode === "map"}
+                    screenRef={screenRef}
+                    hoverRef={hoverRef}
+                    viewRef={viewSignal}
+                    onFocusArrived={markArrived}
+                    onOpenMemory={openMemory}
+                    onOpenPlace={openPlaceById}
+                    onPickLocation={(next) => openDialog(next)}
+                  />
+                </StageBoundary>
               </div>
 
               {mode === "map" ? (
@@ -668,6 +689,11 @@ export default function MapPage() {
                 cardRef={cardRef}
                 active={cardShown && current !== null && !selected && mode === "globe"}
               />
+
+              {/* Hover card for a memory marker: DOM, not inside the canvas. */}
+              {mode === "globe" ? (
+                <GlobeHoverCard hoverRef={hoverRef} pins={globePins} />
+              ) : null}
 
               {/*
                 One rail, not three floating cards: search, categories, the

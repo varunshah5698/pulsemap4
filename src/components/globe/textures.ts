@@ -12,6 +12,93 @@ let locationTexture: THREE.Texture | null = null;
 let savedTexture: THREE.Texture | null = null;
 const countTextures = new Map<number, THREE.Texture>();
 
+/**
+ * A place name, drawn once into a texture.
+ *
+ * Names used to be DOM elements floating over the canvas, which meant React
+ * mounting and unmounting a nested root every time the camera reshuffled the
+ * labels — expensive, and it desynchronised React's view of the DOM from the
+ * real one. Drawn here they are ordinary sprites: no DOM, no React, and they
+ * scale with the marker like everything else on the globe.
+ */
+const labelTextures = new Map<string, THREE.Texture>();
+const MAX_LABELS = 220;
+
+function fitText(ctx: CanvasRenderingContext2D, text: string, max: number): string {
+  if (ctx.measureText(text).width <= max) return text;
+  let cut = text;
+  while (cut.length > 1 && ctx.measureText(`${cut}…`).width > max) {
+    cut = cut.slice(0, -1);
+  }
+  return `${cut.trimEnd()}…`;
+}
+
+export function getLabelTexture({
+  title,
+  subtitle,
+  accent,
+  promoted,
+}: {
+  title: string;
+  subtitle?: string;
+  accent: string;
+  promoted?: boolean;
+}): THREE.Texture {
+  const key = `${title}|${subtitle ?? ""}|${accent}|${promoted ? 1 : 0}`;
+  const cached = labelTextures.get(key);
+  if (cached) return cached;
+
+  // Drawn at 2x and laid out in CSS pixels, so text is crisp on a retina screen.
+  // One fixed aspect for every label, or a one-line name would be stretched by
+  // the sprite it is mapped onto.
+  const ratio = 2;
+  const width = 320;
+  const height = 96;
+  const canvas = document.createElement("canvas");
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+  const ctx = canvas.getContext("2d");
+
+  if (ctx) {
+    ctx.scale(ratio, ratio);
+    const radius = 14;
+    ctx.beginPath();
+    ctx.roundRect(1.5, 1.5, width - 3, height - 3, radius);
+    ctx.fillStyle = "rgba(12,12,17,0.93)";
+    ctx.fill();
+    ctx.lineWidth = promoted ? 3 : 2;
+    ctx.strokeStyle = promoted ? accent : "rgba(255,255,255,0.16)";
+    ctx.stroke();
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "600 27px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif";
+    const titleText = promoted ? `✦ ${title}` : title;
+    ctx.fillText(fitText(ctx, titleText, width - 32), width / 2, subtitle ? 36 : 48);
+
+    if (subtitle) {
+      ctx.fillStyle = promoted ? accent : "rgba(255,255,255,0.62)";
+      ctx.font = "500 21px Inter, system-ui, -apple-system, 'Segoe UI', sans-serif";
+      ctx.fillText(fitText(ctx, subtitle, width - 32), width / 2, 68);
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+
+  if (labelTextures.size >= MAX_LABELS) {
+    const oldest = labelTextures.keys().next().value;
+    if (oldest !== undefined) {
+      labelTextures.get(oldest)?.dispose();
+      labelTextures.delete(oldest);
+    }
+  }
+  labelTextures.set(key, texture);
+  return texture;
+}
+
 /** Soft radial falloff, used for marker glows and the landing glow. */
 export function getGlowTexture(): THREE.Texture {
   if (glowTexture) return glowTexture;

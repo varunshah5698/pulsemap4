@@ -157,8 +157,7 @@ class MarkerLayer {
       const element = spec.make();
       class Marker extends Overlay {
         onAdd() {
-          const panes = this.getPanes();
-          panes?.overlayMouseTarget.appendChild(element);
+          this.getPanes()?.overlayMouseTarget?.appendChild(element);
         }
         draw() {
           const point = this.getProjection()?.fromLatLngToDivPixel(this.position);
