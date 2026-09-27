@@ -32,7 +32,10 @@ export type PlacesConfig = {
   photoBase: string | null;
   scopes: { key: string; label: string }[];
   nearbyMaxRadiusKm: number;
-  /** Maps JavaScript API key for the flat map; signed-in callers only. */
+  /**
+   * A Maps JavaScript API key the backend holds for browsers, if any. Only a
+   * dedicated browser key is ever sent here — never the server Places key.
+   */
   browserKey: string | null;
   /** True when the browser key is a dedicated, referrer-restricted one. */
   browserKeyDedicated: boolean;

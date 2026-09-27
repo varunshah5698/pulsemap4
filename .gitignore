@@ -1,4 +1,7 @@
-.env.local
+# Environment files: every value here is a secret. Only the template is tracked.
+.env
+.env.*
+!.env.example
 node_modules
 dist
 src/convex/_generated

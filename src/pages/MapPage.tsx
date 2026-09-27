@@ -22,6 +22,7 @@ import { PlaceMap2D, type Map2DView } from "@/components/globe/PlaceMap2D";
 import { PlacePanel, type PlaceMemoryLink, type PlaceSummary } from "@/components/globe/PlacePanel";
 import { PlaceSearch } from "@/components/globe/PlaceSearch";
 import { RecentMemories } from "@/components/globe/RecentMemories";
+import { resolveBrowserKey } from "@/components/globe/browser-key";
 import { MAX_DISTANCE, MIN_DISTANCE, distanceForSpan, haversineKm } from "@/components/globe/geo";
 import { useGlobeView, createViewSignal } from "@/components/globe/use-globe-view";
 import { useMemoryStream } from "@/components/globe/use-memory-stream";
@@ -517,16 +518,26 @@ export default function MapPage() {
   const openMemory = useCallback((id: string) => navigate(`/m/${id}`), [navigate]);
 
   /**
+   * The key the flat map runs on: the build-time browser key if there is one,
+   * otherwise a browser key the backend was given. Never the server key.
+   */
+  const mapKey = resolveBrowserKey(nearby.config?.browserKey);
+
+  /**
    * Descend far enough and the flat map takes over on its own — that is the
    * whole point of it. Zooming back out (or choosing the globe yourself) hands
    * control straight back, so manual navigation is never taken away.
+   *
+   * Only worth doing when there is a key to draw with: without one the flat
+   * view has nothing but an explanation on it, so the globe keeps the stage and
+   * the person can still ask for the flat view themselves.
    */
   useEffect(() => {
     if (view.spanKm > GLOBE_RETURN_KM) handoffDismissed.current = false;
-    if (mode !== "globe" || handoffDismissed.current) return;
+    if (!mapKey || mode !== "globe" || handoffDismissed.current) return;
     if (view.spanKm > MAP_HANDOFF_KM) return;
     showMap(view);
-  }, [mode, showMap, view]);
+  }, [mapKey, mode, showMap, view]);
 
   /* --- stage chrome ---------------------------------------------------- */
   const loading = pinRows === undefined;
@@ -684,7 +695,7 @@ export default function MapPage() {
               {mode === "map" ? (
                 <div className="absolute inset-0">
                   <PlaceMap2D
-                    apiKey={nearby.config?.browserKey ?? null}
+                    apiKey={mapKey}
                     configReady={nearby.config !== undefined}
                     active
                     sync={mapSync}
@@ -872,8 +883,9 @@ export default function MapPage() {
               {globeError && mode === "globe" ? (
                 <div className="absolute inset-x-3 bottom-3 z-40 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#141419]/96 px-4 py-3 text-center backdrop-blur-xl lg:inset-x-auto lg:right-4 lg:bottom-4 lg:left-auto lg:max-w-sm lg:text-left">
                   <p className="text-[12px] leading-5 text-white/70">
-                    The 3D view stopped. Your memories are safe — try it again, or keep
-                    going on the flat map.
+                    {mapKey
+                      ? "The 3D view stopped. Your memories are safe — try it again, or keep going on the flat map."
+                      : "The 3D view stopped. Your memories are safe — try loading it again."}
                   </p>
                   <div className="flex items-center gap-2">
                     <button
@@ -883,13 +895,15 @@ export default function MapPage() {
                     >
                       Try 3D again
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => showMap(effectiveView)}
-                      className="rounded-full border border-white/15 px-3.5 py-1.5 text-[12px] font-semibold text-white/80"
-                    >
-                      Use the 2D map
-                    </button>
+                    {mapKey ? (
+                      <button
+                        type="button"
+                        onClick={() => showMap(effectiveView)}
+                        className="rounded-full border border-white/15 px-3.5 py-1.5 text-[12px] font-semibold text-white/80"
+                      >
+                        Use the 2D map
+                      </button>
+                    ) : null}
                   </div>
                 </div>
               ) : null}

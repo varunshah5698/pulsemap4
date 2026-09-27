@@ -472,8 +472,9 @@ export function PlaceMap2D({
         <div className="pm-map-note">
           <p className="font-semibold text-white">2D maps need a browser key</p>
           <p className="mt-1.5 leading-5 text-white/60">
-            Add <strong>GOOGLE_MAPS_BROWSER_KEY</strong> (a Maps JavaScript API key
-            restricted to this site) in the Keys tab. Places, search and memory pins
+            Add a Google key for the browser: set <strong>VITE_GOOGLE_MAPS_BROWSER_KEY</strong> for
+            the frontend (or <strong>GOOGLE_MAPS_BROWSER_KEY</strong> for the backend) to a Maps
+            JavaScript API key restricted to this site. Places, search and memory pins
             keep working without it.
           </p>
         </div>

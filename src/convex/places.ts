@@ -474,6 +474,29 @@ function apiKey(): string | null {
   return key && key.trim().length > 10 ? key.trim() : null;
 }
 
+/**
+ * Values written through a key vault can arrive sealed ("encrypted:..."),
+ * which is storage, not a credential. Treat those as absent so the UI explains
+ * what is missing instead of handing Google something it will reject.
+ */
+const SEALED_VALUE = /^(?:encrypted|sealed|vault|secret):/i;
+
+/**
+ * The browser's key, kept strictly separate from the server's.
+ *
+ * This is the *only* key shape this module is allowed to hand to a client, and
+ * it comes from `GOOGLE_MAPS_BROWSER_KEY` only. `apiKey()` above never leaves
+ * the server: falling back to it here would put the Places key in the page.
+ */
+function browserApiKey(): string | null {
+  const key = process.env.GOOGLE_MAPS_BROWSER_KEY;
+  if (!key) return null;
+  const trimmed = key.trim();
+  if (trimmed.length <= 10) return null;
+  if (SEALED_VALUE.test(trimmed)) return null;
+  return trimmed;
+}
+
 async function requireIdentity(ctx: ActionCtx): Promise<Failure | null> {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
@@ -680,9 +703,11 @@ export type SerializedPlace = ReturnType<typeof serializePlace>;
  * The Maps JavaScript API key has to reach the browser — that is how the API
  * works — so it is a *separate* key from the one that calls Places from here:
  * set `GOOGLE_MAPS_BROWSER_KEY` restricted to your site's referrers, and the
- * server-side `GOOGLE_MAPS_API_KEY` stays server-side only. Falling back to the
- * server key keeps a single-key project working, but that key should then be
- * referrer-restricted too. Only signed-in callers ever see it.
+ * server-side `GOOGLE_MAPS_API_KEY` stays server-side only. There is no
+ * fallback between them: a project that only has the server key simply gets
+ * `null` here, and the frontend draws its own key (the Vite-exposed
+ * `VITE_GOOGLE_MAPS_BROWSER_KEY`) or explains that the flat map needs one.
+ * Only signed-in callers ever see this field.
  */
 export const config = query({
   args: {},
@@ -694,12 +719,9 @@ export const config = query({
       photoBase: site ? `${site}/places/photo?ref=` : null,
       scopes: SCOPES.map((scope) => ({ key: scope.key, label: scope.label })),
       nearbyMaxRadiusKm: NEARBY_MAX_RADIUS_KM,
-      browserKey:
-        identity && apiKey() !== null
-          ? (process.env.GOOGLE_MAPS_BROWSER_KEY ?? process.env.GOOGLE_MAPS_API_KEY ?? null)
-          : null,
+      browserKey: identity ? browserApiKey() : null,
       /** True when the browser key is a dedicated, referrer-restricted one. */
-      browserKeyDedicated: Boolean(process.env.GOOGLE_MAPS_BROWSER_KEY),
+      browserKeyDedicated: browserApiKey() !== null,
     };
   },
 });
