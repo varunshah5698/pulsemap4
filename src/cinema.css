@@ -441,16 +441,23 @@ button {
 .hero-title {
   left: 50%;
   top: clamp(122px, 19vh, 205px);
-  z-index: 3;
+  /* Above every scene layer (bridge 4, frame-two 5, splitframes 6) so the
+     wordmark is never cut by the photographs rising in front of it. */
+  z-index: 7;
   width: min(94vw, 1780px);
   margin: 0;
   color: #fdf1e1;
   font-family: "Ogg Medium", Georgia, "Times New Roman", serif;
-  font-size: 14rem;
+  /* Caps at the original 14rem on wide screens, then tracks the viewport so
+     even a long wordmark can never overflow the stage and lose its edges. */
+  font-size: min(14rem, 14.5vw);
   font-weight: 500;
   line-height: 0.78;
   text-align: center;
   text-shadow: none;
+  /* The title outlives its own fade in the DOM; it must never swallow clicks
+     meant for the sight cards or the controls underneath it. */
+  pointer-events: none;
   transform: translate3d(-50%, var(--title-y), 0) scale(var(--title-scale));
   opacity: var(--title-opacity);
   will-change: transform, opacity;
@@ -694,7 +701,7 @@ button {
 
 @media (max-width: 1500px) {
   .hero-title {
-    font-size: 11rem;
+    font-size: min(11rem, 14.5vw);
   }
 
   .story-panel h2 {
@@ -705,7 +712,9 @@ button {
 @media (max-width: 1100px) {
   .hero-title {
     top: 15vh;
-    font-size: 7.5rem;
+    /* The 721–1100px band is where a fixed 7.5rem runs out of room, so the
+       viewport cap keeps the wordmark inside the stage. */
+    font-size: min(7.5rem, 14.5vw);
   }
 
   .bridge-img {
@@ -761,7 +770,7 @@ button {
 
   .hero-title {
     top: 16vh;
-    font-size: 4.5rem;
+    font-size: min(4.5rem, 14.5vw);
   }
 
   .bridge-img {
@@ -869,13 +878,13 @@ button {
    more step down where the 14rem and 11rem sizes would wrap. */
 @media (max-width: 1300px) and (min-width: 1101px) {
   .hero-title {
-    font-size: 9.5rem;
+    font-size: min(9.5rem, 14.5vw);
   }
 }
 
 @media (max-width: 720px) {
   .hero-title {
-    font-size: 3.4rem;
+    font-size: min(3.4rem, 12vw);
   }
 }
 
