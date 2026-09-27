@@ -1,4 +1,6 @@
 import { PulseShell, SectionHeading } from "@/components/pulsemap/AppShell";
+import { MemoryConnections } from "@/components/pulse/surfaces";
+import { usePulsePage } from "@/components/pulse/PulseProvider";
 import {
   formatDate,
   formatDateTime,
@@ -48,6 +50,18 @@ export default function MemoryDetail() {
   const [draft, setDraft] = useState("");
   const [posting, setPosting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  usePulsePage(
+    {
+      route: `/m/${id ?? ""}`,
+      memoryId: id,
+      label: memory?.title,
+      placeName: memory?.placeName,
+      lat: memory?.lat,
+      lng: memory?.lng,
+    },
+    [id, memory?.title],
+  );
 
   if (memory === undefined) {
     return (
@@ -141,6 +155,10 @@ export default function MemoryDetail() {
         <ArrowLeft className="size-4" aria-hidden="true" />
         Back to the catalogue
       </Link>
+
+      <div className="mb-6">
+        <MemoryConnections memoryId={String(memory._id)} />
+      </div>
 
       <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div>

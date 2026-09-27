@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { DraftAssistant } from "@/components/pulse/surfaces";
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import { ImagePlus, Loader2, MapPin } from "lucide-react";
@@ -287,6 +288,24 @@ export function PinMemoryDialog({
               </Select>
             </div>
           </div>
+
+          <DraftAssistant
+            placeName={placeName}
+            title={title}
+            note={note}
+            tags={tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean)}
+            lat={coords?.lat ?? (manual.lat ? Number(manual.lat) : undefined)}
+            lng={coords?.lng ?? (manual.lng ? Number(manual.lng) : undefined)}
+            happenedAt={date ? new Date(date).getTime() : undefined}
+            onApply={(suggestion) => {
+              if (suggestion.title) setTitle(suggestion.title);
+              if (suggestion.note) setNote(suggestion.note);
+              if (suggestion.tags?.length) setTags(suggestion.tags.join(", "));
+            }}
+          />
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="memory-note">The note</Label>

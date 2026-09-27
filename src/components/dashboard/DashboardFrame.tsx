@@ -10,6 +10,7 @@ import {
   LogOut,
   Map,
   Plus,
+  Route,
   Search,
 } from "lucide-react";
 import { Link, useLocation, useNavigate } from "react-router";
@@ -29,6 +30,7 @@ const DESTINATIONS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/map", label: "Live map", icon: Map },
   { to: "/explore", label: "Explore", icon: Compass },
+  { to: "/trips", label: "Trips", icon: Route },
 ] as const;
 
 function initials(name: string) {

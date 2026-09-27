@@ -610,6 +610,14 @@
   }
 }
 
+/* Pulse's read on the region the globe is showing. */
+.pm-pulse-area {
+  border-radius: 1rem;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(255, 106, 44, 0.07), rgba(255, 255, 255, 0.015));
+  padding: 0.875rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pm-rise {
     animation: none !important;

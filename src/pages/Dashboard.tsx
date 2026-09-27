@@ -33,6 +33,15 @@ import {
   Sparkles,
   Waves,
 } from "lucide-react";
+import {
+  AITravelStats,
+  NextAdventure,
+  PersonalizedRecommendations,
+  PulseBrief,
+  SavedOpportunity,
+  TravelInsights,
+} from "@/components/pulse/surfaces";
+import { usePulsePage } from "@/components/pulse/PulseProvider";
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import "../dashboard.css";
@@ -108,6 +117,7 @@ export default function Dashboard() {
   const setReminderDone = useMutation(api.reminders.setDone);
 
   const [tab, setTab] = useState<DashboardTab>("overview");
+  usePulsePage({ route: "/dashboard" });
   const [range, setRange] = useState<Range>("1m");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [seeding, setSeeding] = useState(false);
@@ -306,6 +316,28 @@ export default function Dashboard() {
 
           <div className="flex flex-1 gap-6 px-5 py-6 sm:px-7">
             <main className="min-w-0 flex-1">
+              {tab === "overview" ? (
+                <div className="mb-5 grid gap-5 lg:grid-cols-3">
+                  <div className="lg:col-span-2">
+                    <PulseBrief />
+                  </div>
+                  <NextAdventure />
+                </div>
+              ) : null}
+
+              {tab === "overview" ? (
+                <div className="mb-5 grid gap-5 lg:grid-cols-3">
+                  <div className="lg:col-span-2">
+                    <PersonalizedRecommendations surface="dashboard" limit={3} />
+                  </div>
+                  <div className="flex flex-col gap-5">
+                    <SavedOpportunity />
+                    <TravelInsights limit={4} />
+                    <AITravelStats />
+                  </div>
+                </div>
+              ) : null}
+
               {tab === "overview" ? (
                 <div className="grid gap-5 lg:grid-cols-3 lg:grid-rows-[auto_auto_minmax(0,1fr)]">
                   <div className="lg:col-span-2 lg:col-start-1 lg:row-start-1">

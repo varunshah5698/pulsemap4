@@ -253,7 +253,7 @@ function cellOf(lat: number, lng: number): string {
 }
 
 /** Every cell the given radius touches (at most 5x5 for our ceiling). */
-function cellsAround(lat: number, lng: number, radiusKm: number): string[] {
+export function cellsAround(lat: number, lng: number, radiusKm: number): string[] {
   const dLat = radiusKm / 111.32;
   const dLng = radiusKm / (111.32 * Math.max(0.2, Math.cos(toRadians(lat))));
   const cells: string[] = [];
@@ -572,6 +572,44 @@ export const photoAllowed = internalQuery({
       .first();
     if (!row?.photos) return false;
     return row.photos.includes(args.ref);
+  },
+});
+
+/**
+ * Internal: cached rows around a point, nearest first.
+ *
+ * The intelligence layer reads real places through this, so a place the model
+ * mentions always has a row behind it — and nothing has to be re-fetched from
+ * Google to write an explanation.
+ */
+export const nearbyRows = internalQuery({
+  args: {
+    lat: v.number(),
+    lng: v.number(),
+    radiusKm: v.number(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const cells = cellsAround(args.lat, args.lng, Math.min(args.radiusKm, NEARBY_MAX_RADIUS_KM));
+    const seen = new Set<string>();
+    const rows: Doc<"places">[] = [];
+    for (const cell of cells.slice(0, 9)) {
+      const bucket = await ctx.db
+        .query("places")
+        .withIndex("by_cell", (q) => q.eq("cell", cell))
+        .take(60);
+      for (const row of bucket) {
+        if (seen.has(row.googlePlaceId)) continue;
+        seen.add(row.googlePlaceId);
+        if (haversineKm(args.lat, args.lng, row.lat, row.lng) > args.radiusKm) continue;
+        rows.push(row);
+      }
+    }
+    rows.sort(
+      (a, b) =>
+        haversineKm(args.lat, args.lng, a.lat, a.lng) - haversineKm(args.lat, args.lng, b.lat, b.lng),
+    );
+    return rows.slice(0, args.limit ?? 20);
   },
 });
 

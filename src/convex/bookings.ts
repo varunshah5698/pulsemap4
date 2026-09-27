@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { currentUser, displayName, isAdmin, requireUserId } from "./access";
+import { currentUser, isAdmin, requireUserId } from "./access";
 
 export const listMine = query({
   args: {},

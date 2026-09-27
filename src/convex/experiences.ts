@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUserId } from "./access";
-import { toneValidator } from "./schema";
 
 export const list = query({
   args: {

@@ -1,4 +1,6 @@
 import { PulseShell } from "@/components/pulsemap/AppShell";
+import { PersonalizedRecommendations } from "@/components/pulse/surfaces";
+import { usePulsePage } from "@/components/pulse/PulseProvider";
 import { MemoryCard } from "@/components/pulsemap/MemoryCard";
 import { Segmented } from "@/components/dashboard/charts";
 import { TONES, TONE_META, formatDuration, formatMoney, toneMeta } from "@/components/pulsemap/tone";
@@ -60,6 +62,7 @@ export default function Explore() {
       : "skip",
   );
   const cities = useQuery(api.experiences.cities);
+  usePulsePage({ route: "/explore", filters: [view, search].filter(Boolean) });
 
   return (
     <PulseShell
@@ -67,6 +70,10 @@ export default function Explore() {
       title="Browse and search the map"
       description="Public memories are the living half of Pulsemap. The trails are curated routes you can book a guide for, then keep every pin you collect along the way."
     >
+      <div className="mb-5">
+        <PersonalizedRecommendations surface="explore" limit={3} />
+      </div>
+
       <div className="pm-panel flex flex-col gap-4 p-4 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <Search

@@ -10,6 +10,7 @@ import {
   type GlobeHoverSignal,
   type GlobeScreenSignal,
   type GlobeView,
+  type RoutePoint,
 } from "@/components/globe/EarthScene";
 import { GlobeHoverCard } from "@/components/globe/GlobeHoverCard";
 import { StageBoundary } from "@/components/globe/StageBoundary";
@@ -21,6 +22,8 @@ import { NearbyPlaces } from "@/components/globe/NearbyPlaces";
 import { PlaceMap2D, type Map2DView } from "@/components/globe/PlaceMap2D";
 import { PlacePanel, type PlaceMemoryLink, type PlaceSummary } from "@/components/globe/PlacePanel";
 import { PlaceSearch } from "@/components/globe/PlaceSearch";
+import { AreaIntelCard } from "@/components/pulse/surfaces";
+import { usePulsePage } from "@/components/pulse/PulseProvider";
 import { RecentMemories } from "@/components/globe/RecentMemories";
 import { resolveBrowserKey } from "@/components/globe/browser-key";
 import { MAX_DISTANCE, MIN_DISTANCE, distanceForSpan, haversineKm } from "@/components/globe/geo";
@@ -36,7 +39,7 @@ import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
 import { Compass, Globe2, MapIcon, MapPin, Plus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 
 /** What `api.memories.mapPins` hands back, narrowed to what this page reads. */
 type MapPin = {
@@ -270,6 +273,98 @@ export default function MapPage() {
     }
   }, [aim, focus, showMap]);
 
+  /* --- a trip on the globe: ?trip=<id> -------------------------------- */
+  const [linkedTripId, setLinkedTripId] = useState<string | null>(null);
+  const linkedTrip = useQuery(
+    api.trips.get,
+    linkedTripId ? { tripId: linkedTripId as never } : "skip",
+  );
+  const tripRoute = useMemo<RoutePoint[]>(() => {
+    if (!linkedTrip) return [];
+    return linkedTrip.items
+      .filter((item) => typeof item.lat === "number" && typeof item.lng === "number")
+      .map((item) => ({ lat: item.lat as number, lng: item.lng as number, label: item.title }));
+  }, [linkedTrip]);
+  const handledTrip = useRef<string | null>(null);
+
+  /** Frame the whole trip once it is loaded, not just its first stop. */
+  useEffect(() => {
+    if (!linkedTripId || !linkedTrip || handledTrip.current === linkedTripId) return;
+    handledTrip.current = linkedTripId;
+    const anchor =
+      typeof linkedTrip.trip.lat === "number" && typeof linkedTrip.trip.lng === "number"
+        ? { lat: linkedTrip.trip.lat, lng: linkedTrip.trip.lng }
+        : null;
+    const points: { lat: number; lng: number }[] =
+      tripRoute.length > 1
+        ? tripRoute.map((point) => ({ lat: point.lat, lng: point.lng }))
+        : anchor
+          ? [anchor]
+          : [];
+    if (points.length === 0) return;
+    const centre = {
+      lat: points.reduce((sum, point) => sum + point.lat, 0) / points.length,
+      lng: points.reduce((sum, point) => sum + point.lng, 0) / points.length,
+    };
+    const reach = points.reduce(
+      (max, point) => Math.max(max, haversineKm(centre.lat, centre.lng, point.lat, point.lng)),
+      0,
+    );
+    const spanKm = Math.min(4000, Math.max(40, reach * 2.6));
+    if (modeRef.current === "map") showMap({ lat: centre.lat, lng: centre.lng, spanKm });
+    else aim(centre.lat, centre.lng, distanceFor(spanKm));
+  }, [aim, distanceFor, linkedTrip, linkedTripId, showMap, tripRoute]);
+
+  /* --- deep links: ?place=<google id>, ?focus=lat,lng,span, ?trip=<id> -- */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [linkedPlaceId, setLinkedPlaceId] = useState<string | null>(null);
+  /** Filled in by the panel's own resolve, then used to fly the camera there. */
+  const linkedPlace = useQuery(
+    api.places.detail,
+    linkedPlaceId ? { placeId: linkedPlaceId } : "skip",
+  );
+  const handledLink = useRef<string | null>(null);
+
+  useEffect(() => {
+    const placeParam = searchParams.get("place");
+    const focusParam = searchParams.get("focus");
+    const tripParam = searchParams.get("trip");
+    if (!placeParam && !focusParam && !tripParam) return;
+    const token = `${placeParam ?? ""}|${focusParam ?? ""}|${tripParam ?? ""}`;
+    if (handledLink.current === token) return;
+    handledLink.current = token;
+
+    if (placeParam) {
+      setSelected({ id: placeParam, fallback: null });
+      setLinkedPlaceId(placeParam);
+    }
+
+    if (tripParam) setLinkedTripId(tripParam);
+
+    if (focusParam) {
+      const [lat, lng, span] = focusParam.split(",").map(Number);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        const spanKm = Number.isFinite(span) && span > 0 ? Math.min(span, 4000) : 60;
+        if (modeRef.current === "map") showMap({ lat, lng, spanKm });
+        else aim(lat, lng, distanceFor(spanKm));
+      }
+    }
+
+    // The link has been honoured: drop it so a refresh does not replay the flight.
+    setSearchParams({}, { replace: true });
+  }, [aim, distanceFor, searchParams, setSearchParams, showMap]);
+
+  /** A linked place only has coordinates once it resolves; follow it there. */
+  useEffect(() => {
+    if (!linkedPlaceId || !linkedPlace) return;
+    if (modeRef.current === "map") {
+      showMap({ lat: linkedPlace.lat, lng: linkedPlace.lng, spanKm: 6 });
+    } else {
+      aim(linkedPlace.lat, linkedPlace.lng, distanceFor(6));
+    }
+    setLinkedPlaceId(null);
+  }, [aim, distanceFor, linkedPlace, linkedPlaceId, showMap]);
+
   /* --- filters --------------------------------------------------------- */
   const [scope, setScope] = useState<GlobeScope>("all");
   const [tone, setTone] = useState<string>("any");
@@ -358,6 +453,20 @@ export default function MapPage() {
   // reshuffle every label four times a second.
   const labelLat = Number(effectiveView.lat.toFixed(1));
   const labelLng = Number(effectiveView.lng.toFixed(1));
+
+  /* Tell Pulse where the camera is, so "this area" means what the person sees. */
+  usePulsePage(
+    {
+      route: mode === "map" ? "/map?view=flat" : "/map",
+      lat: labelLat,
+      lng: labelLng,
+      spanKm: Math.round(effectiveView.spanKm),
+      placeId: selected?.id,
+      placeName: selected?.fallback?.name,
+      filters: [category, tone, scope].filter(Boolean) as string[],
+    },
+    [labelLat, labelLng, mode, selected?.id, category, tone, scope],
+  );
   const labelIds = useMemo(() => {
     if (labelLevel === 1) return [];
     const count = labelLevel === 3 ? 14 : 8;
@@ -679,6 +788,7 @@ export default function MapPage() {
                     command={command}
                     currentLocation={currentLocation}
                     autoSpin={autoSpin}
+                    route={tripRoute}
                     paused={mode === "map"}
                     screenRef={screenRef}
                     hoverRef={hoverRef}
@@ -792,12 +902,42 @@ export default function MapPage() {
                       memories={globePins.length}
                       places={globePlaces.length}
                     />
+                    {tripRoute.length > 1 ? (
+                      <div className="mt-3 flex items-start justify-between gap-3 rounded-xl border border-[#ff6a2c]/25 bg-[#ff6a2c]/[0.06] px-3 py-2">
+                        <p className="text-[11px] leading-5 text-white/70">
+                          Showing the route for{" "}
+                          <span className="font-semibold text-white">
+                            {linkedTrip?.trip.title ?? "your trip"}
+                          </span>{" "}
+                          — {tripRoute.length} stops.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setLinkedTripId(null)}
+                          className="shrink-0 text-[11px] font-semibold text-white/50 transition hover:text-white"
+                        >
+                          Hide
+                        </button>
+                      </div>
+                    ) : null}
                     {locationNote ? (
                       <p className="mt-2 text-[11px] leading-5 text-white/45">
                         {locationNote}
                       </p>
                     ) : null}
                   </div>
+
+                  {/* Pulse reads the region you are actually looking at. */}
+                  {effectiveView.spanKm <= PLACES_SPAN_KM ? (
+                    <div className="mt-3 border-t border-white/[0.07] pt-3">
+                      <AreaIntelCard
+                        lat={labelLat}
+                        lng={labelLng}
+                        spanKm={effectiveView.spanKm}
+                        label={`Around ${labelLat.toFixed(1)}, ${labelLng.toFixed(1)}`}
+                      />
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* The recent list lives in the same column, so it cannot

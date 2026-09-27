@@ -49,7 +49,10 @@ import {
   PLACE_SPRITE,
   type GlobePlace,
 } from "./PlaceMarkers";
+import { RouteLine, type RoutePoint } from "./RouteLine";
 import { AUTO_RESUME_MS, useGlobeControls } from "./use-globe-controls";
+
+export type { RoutePoint };
 
 /* ------------------------------------------------------------------ *
  * Remote textures. Same public three.js texture set, pinned by tag so
@@ -145,6 +148,8 @@ export type EarthGlobeProps = {
   screenRef?: RefObject<GlobeScreenSignal>;
   hoverRef?: RefObject<GlobeHoverSignal>;
   viewRef?: RefObject<GlobeView>;
+  /** A trip's stops, drawn as an arc between them. Empty when there is none. */
+  route?: RoutePoint[];
   /** Called once if the frame loop throws, so the page can say so. */
   onError?: (message: string) => void;
   onFocusArrived: () => void;
@@ -232,6 +237,7 @@ function GlobeScene({
   command,
   currentLocation,
   autoSpin,
+  route,
   screenRef,
   viewRef,
   onFocusArrived,
@@ -914,6 +920,9 @@ function GlobeScene({
           registry={placeRegistry}
           labelRegistry={placeLabelRegistry}
         />
+
+        {/* A planned trip, shown where it actually goes. */}
+        {route && route.length > 1 ? <RouteLine points={route} /> : null}
 
         {localPoint ? (
           <sprite ref={locationSprite} position={localPoint} scale={0.05}>

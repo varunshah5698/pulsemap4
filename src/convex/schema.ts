@@ -49,6 +49,90 @@ export const orderStatusValidator = v.union(
 );
 export type OrderStatus = Infer<typeof orderStatusValidator>;
 
+/* --- Trips ---------------------------------------------------------- */
+
+export const tripStatusValidator = v.union(
+  v.literal("idea"),
+  v.literal("planning"),
+  v.literal("booked"),
+  v.literal("taken"),
+);
+export type TripStatus = Infer<typeof tripStatusValidator>;
+
+export const budgetModeValidator = v.union(
+  v.literal("budget"),
+  v.literal("balanced"),
+  v.literal("comfort"),
+  v.literal("luxury"),
+);
+export type BudgetMode = Infer<typeof budgetModeValidator>;
+
+export const tripItemKindValidator = v.union(
+  v.literal("place"),
+  v.literal("activity"),
+  v.literal("food"),
+  v.literal("stay"),
+  v.literal("transport"),
+  v.literal("rest"),
+);
+export type TripItemKind = Infer<typeof tripItemKindValidator>;
+
+/* --- Derived intelligence ------------------------------------------- */
+
+/** A taste with its receipts: what it is, how strong, and what showed it. */
+export const affinityValidator = v.object({
+  key: v.string(),
+  label: v.string(),
+  weight: v.number(),
+  confidence: v.number(),
+  evidence: v.array(v.string()),
+});
+export type Affinity = Infer<typeof affinityValidator>;
+
+export const placeCountValidator = v.object({
+  name: v.string(),
+  count: v.number(),
+  lastAt: v.number(),
+});
+export type PlaceCount = Infer<typeof placeCountValidator>;
+
+export const inferenceValidator = v.object({
+  preference: v.string(),
+  confidence: v.number(),
+  evidence: v.string(),
+});
+export type Inference = Infer<typeof inferenceValidator>;
+
+export const profileStatsValidator = v.object({
+  memories: v.number(),
+  withPhotos: v.number(),
+  countries: v.number(),
+  cities: v.number(),
+  savedPlaces: v.number(),
+  trips: v.number(),
+  avgTripDays: v.number(),
+  firstAt: v.optional(v.number()),
+  lastAt: v.optional(v.number()),
+  monthsActive: v.number(),
+});
+export type ProfileStats = Infer<typeof profileStatsValidator>;
+
+export const derivedFromValidator = v.object({
+  memories: v.number(),
+  insights: v.number(),
+  trips: v.number(),
+  saves: v.number(),
+  feedback: v.number(),
+});
+export type DerivedFrom = Infer<typeof derivedFromValidator>;
+
+export const artifactStatusValidator = v.union(
+  v.literal("running"),
+  v.literal("done"),
+  v.literal("error"),
+);
+export type ArtifactStatus = Infer<typeof artifactStatusValidator>;
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -225,6 +309,150 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_booking", ["bookingId"])
       .index("by_status", ["status"]),
+
+    /* ---------------------------------------------------------------- *
+     * Trips: the plan the intelligence layer reads and writes. These are
+     * ordinary user data — the AI proposes changes, the person confirms.
+     * ---------------------------------------------------------------- */
+    trips: defineTable({
+      userId: v.id("users"),
+      title: v.string(),
+      destination: v.string(),
+      lat: v.optional(v.number()),
+      lng: v.optional(v.number()),
+      status: tripStatusValidator,
+      startsAt: v.optional(v.number()),
+      endsAt: v.optional(v.number()),
+      travellers: v.number(),
+      budgetMode: budgetModeValidator,
+      budgetCents: v.optional(v.number()),
+      currency: v.string(),
+      interests: v.array(v.string()),
+      notes: v.optional(v.string()),
+      /** Where the plan came from, so a person can see when AI drafted it. */
+      origin: v.union(v.literal("manual"), v.literal("pulse")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_user_status", ["userId", "status"]),
+
+    tripItems: defineTable({
+      tripId: v.id("trips"),
+      userId: v.id("users"),
+      day: v.number(),
+      order: v.number(),
+      kind: tripItemKindValidator,
+      title: v.string(),
+      detail: v.optional(v.string()),
+      lat: v.optional(v.number()),
+      lng: v.optional(v.number()),
+      googlePlaceId: v.optional(v.string()),
+      startMinute: v.optional(v.number()),
+      durationMinutes: v.optional(v.number()),
+      costCents: v.optional(v.number()),
+      source: v.union(v.literal("ai"), v.literal("user")),
+      createdAt: v.number(),
+    })
+      .index("by_trip", ["tripId"])
+      .index("by_trip_day", ["tripId", "day", "order"])
+      .index("by_user", ["userId"]),
+
+    /* ---------------------------------------------------------------- *
+     * Derived intelligence. Nothing here is raw user content sent to a
+     * model over and over: it is the compressed result of reading it once.
+     * ---------------------------------------------------------------- */
+    travelProfiles: defineTable({
+      userId: v.id("users"),
+      /** Weighted tastes, each carrying its own evidence and confidence. */
+      preferences: v.array(affinityValidator),
+      destinationAffinities: v.array(affinityValidator),
+      countries: v.array(placeCountValidator),
+      cities: v.array(placeCountValidator),
+      stats: profileStatsValidator,
+      /** Seasonal notes, in the person's own terms. */
+      seasonal: v.array(v.string()),
+      /** How they move through a place, and what they spend like. */
+      pace: v.optional(v.string()),
+      budgetLean: v.optional(v.string()),
+      /** What the profile was built from, so staleness is measurable. */
+      derivedFrom: derivedFromValidator,
+      /** One short human sentence, written by the model. */
+      summary: v.optional(v.string()),
+      model: v.optional(v.string()),
+      builtAt: v.number(),
+    }).index("by_user", ["userId"]),
+
+    memoryInsights: defineTable({
+      userId: v.id("users"),
+      memoryId: v.id("memories"),
+      destinationType: v.string(),
+      activities: v.array(v.string()),
+      interests: v.array(v.string()),
+      environment: v.array(v.string()),
+      season: v.optional(v.string()),
+      travelStyle: v.array(v.string()),
+      /** Inferences, never stated as fact — each with a confidence. */
+      inferred: v.array(inferenceValidator),
+      summary: v.string(),
+      confidence: v.number(),
+      model: v.string(),
+      /** Hash of the memory at the time of analysis, to skip no-op runs. */
+      sourceHash: v.string(),
+      analyzedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_memory", ["memoryId"]),
+
+    /**
+     * Structured AI output, keyed by kind + a hash of its inputs. Doubles as
+     * the request-deduplicator: a second caller for the same key joins the run
+     * already in flight instead of paying for another model call.
+     */
+    aiArtifacts: defineTable({
+      userId: v.optional(v.id("users")),
+      kind: v.string(),
+      key: v.string(),
+      status: artifactStatusValidator,
+      payload: v.optional(v.any()),
+      error: v.optional(v.string()),
+      model: v.optional(v.string()),
+      tokensIn: v.optional(v.number()),
+      tokensOut: v.optional(v.number()),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+      expiresAt: v.number(),
+    })
+      .index("by_kind_key", ["kind", "key"])
+      .index("by_user_kind", ["userId", "kind"])
+      .index("by_expires", ["expiresAt"]),
+
+    /** Per-person spend guard: the reason AI cannot be called every render. */
+    aiUsage: defineTable({
+      userId: v.id("users"),
+      /** UTC day, so the window is stable across timezones. */
+      day: v.string(),
+      calls: v.number(),
+      cached: v.number(),
+      rejected: v.number(),
+      failures: v.number(),
+      tokensIn: v.number(),
+      tokensOut: v.number(),
+      updatedAt: v.number(),
+    }).index("by_user_day", ["userId", "day"]),
+
+    /** Thumbs, dismissals and hides — the loop that keeps suggestions honest. */
+    aiFeedback: defineTable({
+      userId: v.id("users"),
+      kind: v.string(),
+      /** The artifact key, or the subject the feedback is about. */
+      subject: v.string(),
+      vote: v.union(v.literal("up"), v.literal("down"), v.literal("dismiss")),
+      reason: v.optional(v.string()),
+      createdAt: v.number(),
+    })
+      .index("by_user_subject", ["userId", "kind", "subject"])
+      .index("by_user", ["userId"]),
   },
   {
     schemaValidation: false,

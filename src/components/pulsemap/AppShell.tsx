@@ -4,6 +4,7 @@ import {
   useOpenReminderCount,
 } from "@/components/dashboard/DashboardFrame";
 import { PinMemoryDialog } from "@/components/pulsemap/PinMemoryDialog";
+import { PulseTrigger } from "@/components/pulse/PulseAssistant";
 import { useAuth } from "@/hooks/use-auth";
 import type { ReactNode } from "react";
 import { useState } from "react";
@@ -56,11 +57,10 @@ export function PulseShell({
                   </p>
                 ) : null}
               </div>
-              {actions ? (
-                <div className="flex flex-wrap items-center gap-3 sm:justify-end">
-                  {actions}
-                </div>
-              ) : null}
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <PulseTrigger variant="bar" />
+                {actions}
+              </div>
             </div>
 
             <div className="pt-7 pb-4">{children}</div>

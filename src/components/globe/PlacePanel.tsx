@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { DestinationIntel } from "@/components/pulse/surfaces";
+import { usePulsePage } from "@/components/pulse/PulseProvider";
 import { api } from "@/convex/_generated/api";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { AnimatePresence, motion } from "framer-motion";
@@ -146,6 +148,18 @@ export function PlacePanel({
 
   const place = (detail as PlaceSummary | null) ?? fallback;
   const visual = place ? placeVisual(place.category) : null;
+
+  /* The panel is one of Pulse's contexts: it knows which place this is. */
+  usePulsePage(
+    {
+      route: "/map",
+      placeId: placeId ?? undefined,
+      placeName: place?.name,
+      lat: place?.lat,
+      lng: place?.lng,
+    },
+    [placeId, place?.name],
+  );
 
   async function savePlace() {
     if (!place) return;
@@ -395,6 +409,10 @@ export function PlacePanel({
               </div>
             ) : null}
 
+            <div className="mt-4">
+              <DestinationIntel placeId={place.id} />
+            </div>
+
             {place.summary ? (
               <div className="mt-4">
                 <h3 className="text-[11px] font-bold tracking-[0.16em] text-white/40 uppercase">
@@ -509,6 +527,23 @@ export function PlacePanel({
                 Place data from Google Maps Platform. PulseMap is not endorsed by Google.
               </p>
             </dl>
+          </div>
+        </motion.aside>
+      ) : placeId && resolving ? (
+        /* A deep link opens the panel before Google answers: show the fetching
+           state rather than nothing at all. */
+        <motion.aside
+          key="loading"
+          initial={{ opacity: 0, y: 26 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 18 }}
+          transition={SPRING}
+          className="pm-dark pointer-events-auto fixed inset-x-3 bottom-3 z-50 rounded-[24px] border border-white/10 bg-[#141419]/97 p-5 shadow-[0_30px_80px_rgba(0,0,0,0.6)] backdrop-blur-2xl lg:absolute lg:inset-x-auto lg:top-4 lg:right-4 lg:z-40 lg:w-[368px]"
+          aria-label="Getting place details"
+        >
+          <div className="flex items-center gap-2 text-[12px] text-white/60">
+            <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+            Getting this place from Google…
           </div>
         </motion.aside>
       ) : null}

@@ -2,6 +2,8 @@ import '@vly-ai/integrations';
 import { Toaster } from "@/components/ui/sonner";
 import { RequireAuth } from "@/components/RequireAuth";
 import { AuthRedirect } from "@/components/auth/AuthRedirect";
+import { PulseAssistant, PulseTrigger } from "@/components/pulse/PulseAssistant";
+import { PulseProvider } from "@/components/pulse/PulseProvider";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
@@ -22,6 +24,7 @@ const Explore = lazy(() => import("./pages/Explore.tsx"));
 const MemoryDetail = lazy(() => import("./pages/MemoryDetail.tsx"));
 const TrailDetail = lazy(() => import("./pages/TrailDetail.tsx"));
 const Checkout = lazy(() => import("./pages/Checkout.tsx"));
+const Trips = lazy(() => import("./pages/Trips.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -30,6 +33,22 @@ function RouteLoading() {
     <div className="min-h-screen flex items-center justify-center">
       <div className="animate-pulse text-muted-foreground">Loading...</div>
     </div>
+  );
+}
+
+/**
+ * Pulse rides along on every signed-in screen — the launcher and the panel — and
+ * stays out of the public marketing pages entirely.
+ */
+function PulseSurface() {
+  const location = useLocation();
+  const publicRoutes = ["/", "/login", "/signup", "/forgot-password", "/auth"];
+  if (publicRoutes.includes(location.pathname)) return null;
+  return (
+    <>
+      <PulseTrigger />
+      <PulseAssistant />
+    </>
   );
 }
 
@@ -124,6 +143,7 @@ createRoot(document.getElementById("root")!).render(
         <VlyToolbar />
       </ToolbarErrorBoundary>
       <ConvexAuthProvider client={convex}>
+        <PulseProvider>
         <BrowserRouter>
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
@@ -190,6 +210,28 @@ createRoot(document.getElementById("root")!).render(
                 }
               />
               <Route
+                path="/trips"
+                element={
+                  <RequireAuth
+                    title="Sign in to see your trips"
+                    description="Trips hold the plans Pulse drafted for you, plus the cost and the stories."
+                  >
+                    <Trips />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/trips/:tripId"
+                element={
+                  <RequireAuth
+                    title="Sign in to open this trip"
+                    description="The itinerary, its route and its cost live behind your account."
+                  >
+                    <Trips />
+                  </RequireAuth>
+                }
+              />
+              <Route
                 path="/checkout/:orderId"
                 element={
                   <RequireAuth
@@ -203,7 +245,9 @@ createRoot(document.getElementById("root")!).render(
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
+          <PulseSurface />
         </BrowserRouter>
+        </PulseProvider>
         <Toaster />
       </ConvexAuthProvider>
     </RootErrorBoundary>
