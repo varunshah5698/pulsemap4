@@ -1,5 +1,11 @@
 import { Billboard, Stars } from "@react-three/drei";
-import { Canvas, useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
+import {
+  Canvas,
+  useFrame,
+  useThree,
+  type RootState,
+  type ThreeEvent,
+} from "@react-three/fiber";
 import {
   Component,
   memo,
@@ -136,9 +142,11 @@ export type EarthGlobeProps = {
   autoSpin: boolean;
   /** True while the flat map is on screen and this scene is only being kept warm. */
   paused?: boolean;
-  screenRef: RefObject<GlobeScreenSignal>;
+  screenRef?: RefObject<GlobeScreenSignal>;
   hoverRef?: RefObject<GlobeHoverSignal>;
-  viewRef: RefObject<GlobeView>;
+  viewRef?: RefObject<GlobeView>;
+  /** Called once if the frame loop throws, so the page can say so. */
+  onError?: (message: string) => void;
   onFocusArrived: () => void;
   onOpenMemory: (id: string) => void;
   onOpenPlace: (id: string) => void;
@@ -231,10 +239,34 @@ function GlobeScene({
   onOpenPlace,
   onPickLocation,
   hoverRef,
+  onError,
 }: EarthGlobeProps) {
-  /** Written every frame; only read by whoever draws the hover card. */
+  /**
+   * Every signal this loop writes to is normalised to a ref that definitely
+   * exists. These arrive as props, and a missing or stale one (a hot reload
+   * mid-session, a caller that forgot one) would otherwise crash the frame loop
+   * on its first `.current` read — an uncaught error, with no recovery.
+   */
+  const localScreenRef = useRef<GlobeScreenSignal>({ x: 0, y: 0, visible: false });
   const localHoverRef = useRef<GlobeHoverSignal>({ id: null, x: 0, y: 0 });
+  const localViewRef = useRef<GlobeView>({
+    lat: 18,
+    lng: 8,
+    distance: BASE_DISTANCE,
+    spanKm: 3400,
+    local: false,
+    moving: false,
+  });
+  const screenSignal = screenRef ?? localScreenRef;
   const hoverSignal = hoverRef ?? localHoverRef;
+  const viewSignal = viewRef ?? localViewRef;
+
+  /** Set once the frame loop has failed; the page shows its own notice. */
+  const broken = useRef(false);
+  const onErrorRef = useRef(onError);
+  useEffect(() => {
+    onErrorRef.current = onError;
+  }, [onError]);
   const gl = useThree((state) => state.gl);
   const camera = useThree((state) => state.camera);
   const size = useThree((state) => state.size);
@@ -426,7 +458,14 @@ function GlobeScene({
     }, PICK_DELAY_MS);
   };
 
-  useFrame((state, delta) => {
+  /**
+   * The whole per-frame update.
+   *
+   * Written as a named function so the loop can guard it: a throw from inside
+   * requestAnimationFrame is not something a React error boundary can catch, so
+   * without this it escapes as an uncaught error and the render loop dies.
+   */
+  const renderFrame = (state: RootState, delta: number) => {
     const node = group.current;
     const cameraNode = camera;
     if (!node || document.hidden) return;
@@ -612,12 +651,12 @@ function GlobeScene({
       temps.forward.set(0, 0, 1).applyQuaternion(temps.quat.copy(node.quaternion).invert());
       const centre = vector3ToLatLng(temps.forward);
       const spanKm = viewRadiusKm(c.distance);
-      viewRef.current.lat = centre.lat;
-      viewRef.current.lng = centre.lng;
-      viewRef.current.distance = c.distance;
-      viewRef.current.spanKm = spanKm;
-      viewRef.current.local = c.distance <= LOCAL_DISTANCE;
-      viewRef.current.moving =
+      viewSignal.current.lat = centre.lat;
+      viewSignal.current.lng = centre.lng;
+      viewSignal.current.distance = c.distance;
+      viewSignal.current.spanKm = spanKm;
+      viewSignal.current.local = c.distance <= LOCAL_DISTANCE;
+      viewSignal.current.moving =
         c.dragging ||
         c.pinching ||
         c.travel !== null ||
@@ -643,7 +682,7 @@ function GlobeScene({
       if (facing < 0.06) {
         object.visible = false;
         // The connector must not keep pointing at a point that has turned away.
-        if (handle.id === activeId) screenRef.current.visible = false;
+        if (handle.id === activeId) screenSignal.current.visible = false;
         continue;
       }
       object.visible = true;
@@ -702,9 +741,9 @@ function GlobeScene({
       const screenX = (ndc.x * 0.5 + 0.5) * size.width;
       const screenY = (-ndc.y * 0.5 + 0.5) * size.height;
       if (isActive) {
-        screenRef.current.x = screenX;
-        screenRef.current.y = screenY;
-        screenRef.current.visible = true;
+        screenSignal.current.x = screenX;
+        screenSignal.current.y = screenY;
+        screenSignal.current.visible = true;
       }
       // Publish the marker under the cursor; the page draws its card in DOM.
       if (handle.hovered) {
@@ -714,7 +753,7 @@ function GlobeScene({
       }
     }
     if (activeId && !registry.current.has(activeId) && !c.travel) {
-      screenRef.current.visible = false;
+      screenSignal.current.visible = false;
     }
     hoverSignal.current.id = hoveredId;
     hoverSignal.current.x = hoveredX;
@@ -768,6 +807,19 @@ function GlobeScene({
     if (level !== levelRef.current) {
       levelRef.current = level;
       setClusterLevel(level);
+    }
+  };
+
+  useFrame((state, delta) => {
+    if (broken.current) return;
+    try {
+      renderFrame(state, delta);
+    } catch (error) {
+      broken.current = true;
+      console.error("Pulsemap globe frame failed:", error);
+      onErrorRef.current?.(
+        error instanceof Error ? error.message : "The 3D view stopped unexpectedly.",
+      );
     }
   });
 

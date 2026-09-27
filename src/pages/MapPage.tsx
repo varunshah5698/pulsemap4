@@ -286,6 +286,8 @@ export default function MapPage() {
   /* --- position -------------------------------------------------------- */
   const [currentLocation, setCurrentLocation] = useState<CurrentLocation>(null);
   const [locating, setLocating] = useState(false);
+  /** Set only if the 3D frame loop throws: the flat map is still there. */
+  const [globeError, setGlobeError] = useState<string | null>(null);
   const [locationNote, setLocationNote] = useState<string | null>(null);
 
   /* --- chrome ---------------------------------------------------------- */
@@ -660,6 +662,7 @@ export default function MapPage() {
                     onOpenMemory={openMemory}
                     onOpenPlace={openPlaceById}
                     onPickLocation={(next) => openDialog(next)}
+                    onError={setGlobeError}
                   />
                 </StageBoundary>
               </div>
@@ -849,6 +852,21 @@ export default function MapPage() {
                       Pin a memory
                     </Button>
                   </div>
+                </div>
+              ) : null}
+
+              {globeError && mode === "globe" ? (
+                <div className="absolute inset-x-3 bottom-3 z-40 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-white/10 bg-[#141419]/96 px-4 py-3 text-center backdrop-blur-xl lg:inset-x-auto lg:right-4 lg:bottom-4 lg:left-auto lg:max-w-sm lg:text-left">
+                  <p className="text-[12px] leading-5 text-white/70">
+                    The 3D view stopped — your browser dropped the render loop.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => showMap(effectiveView)}
+                    className="rounded-full bg-[#ff6a2c] px-3.5 py-1.5 text-[12px] font-semibold text-white"
+                  >
+                    Use the 2D map
+                  </button>
                 </div>
               ) : null}
 
