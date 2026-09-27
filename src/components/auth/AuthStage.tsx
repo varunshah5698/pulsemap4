@@ -3,7 +3,7 @@ import { useQuery } from "convex/react";
 import { ArrowRight } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import "../auth.css";
+import "../../auth.css";
 
 /* The same remote artwork family the landing page tells its story with. */
 const SKY =
