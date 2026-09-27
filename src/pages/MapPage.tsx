@@ -3,12 +3,24 @@ import {
   WorkspaceTopBar,
   useOpenReminderCount,
 } from "@/components/dashboard/DashboardFrame";
-import { EarthGlobe, type GlobeScreenSignal } from "@/components/globe/EarthScene";
+import {
+  EarthGlobe,
+  type CurrentLocation,
+  type GlobeCommand,
+  type GlobeScreenSignal,
+  type GlobeView,
+} from "@/components/globe/EarthScene";
+import { NavigationControls, PlaceCategories, ViewChip, formatLatLng } from "@/components/globe/GlobeControls";
 import { GlobeFilters, type GlobeScope } from "@/components/globe/GlobeFilters";
 import { MemoryConnector, MemoryNotification } from "@/components/globe/MemoryNotification";
 import type { GlobePin } from "@/components/globe/Markers";
+import { PlacePanel, type PlaceMemoryLink, type PlaceSummary } from "@/components/globe/PlacePanel";
+import { PlaceSearch } from "@/components/globe/PlaceSearch";
 import { RecentMemories } from "@/components/globe/RecentMemories";
+import { haversineKm } from "@/components/globe/geo";
+import { useGlobeView, createViewSignal } from "@/components/globe/use-globe-view";
 import { useMemoryStream } from "@/components/globe/use-memory-stream";
+import { PLACES_SPAN_KM, useNearbyPlaces } from "@/components/globe/use-nearby-places";
 import { PinMemoryDialog, type PinnedMemory } from "@/components/pulsemap/PinMemoryDialog";
 import { toneMeta } from "@/components/pulsemap/tone";
 import { Button } from "@/components/ui/button";
@@ -16,8 +28,8 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
-import { Compass, Globe, MapPin, Plus } from "lucide-react";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { Compass, Globe2, MapPin, Plus } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
 
 /** What `api.memories.mapPins` hands back, narrowed to what this page reads. */
@@ -37,6 +49,9 @@ type MapPin = {
   mediaUrl: string | null;
 };
 
+/** How close a memory has to be before we say "you have been here". */
+const MEMORY_NEARBY_M = 300;
+
 function toGlobePin(pin: MapPin, userId: string | undefined): GlobePin {
   return {
     id: pin._id,
@@ -50,6 +65,7 @@ function toGlobePin(pin: MapPin, userId: string | undefined): GlobePin {
     createdAt: pin.createdAt,
     visibility: pin.visibility,
     mine: pin.userId === userId,
+    saved: pin.tags.includes("saved"),
   };
 }
 
@@ -118,21 +134,64 @@ export default function MapPage() {
   const openReminders = useOpenReminderCount();
   const pinRows = useQuery(api.memories.mapPins);
 
-  const [scope, setScope] = useState<GlobeScope>("all");
-  const [tone, setTone] = useState<string>("any");
-  const [search, setSearch] = useState("");
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [dialogOpen, setDialogOpen] = useState(false);
-
+  /* --- camera ---------------------------------------------------------- */
   const screenRef = useRef<GlobeScreenSignal>({ x: 0, y: 0, visible: false });
-  const cardRef = useRef<HTMLDivElement>(null);
+  const viewSignal = useRef<GlobeView>(createViewSignal());
+  const view = useGlobeView(viewSignal);
+  const nonce = useRef(0);
+  const [command, setCommand] = useState<GlobeCommand | null>(null);
+
+  const aim = useCallback((lat: number, lng: number, distance?: number) => {
+    nonce.current += 1;
+    setCommand({ kind: "focus", lat, lng, distance, nonce: nonce.current });
+  }, []);
+  const zoomBy = useCallback((factor: number) => {
+    nonce.current += 1;
+    setCommand({ kind: "zoom", factor, nonce: nonce.current });
+  }, []);
+  const resetView = useCallback(() => {
+    nonce.current += 1;
+    setCommand({ kind: "reset", nonce: nonce.current });
+  }, []);
+
+  /* --- memory notifications ------------------------------------------- */
   const { current, cardShown, queued, focus, present, showNow, dismiss, markArrived } =
     useMemoryStream();
+
+  useEffect(() => {
+    if (!focus) return;
+    aim(focus.lat, focus.lng, 2.35);
+  }, [aim, focus]);
+
+  /* --- filters --------------------------------------------------------- */
+  const [scope, setScope] = useState<GlobeScope>("all");
+  const [tone, setTone] = useState<string>("any");
+  const [memorySearch, setMemorySearch] = useState("");
+  const [category, setCategory] = useState("all");
+
+  /* --- real places ----------------------------------------------------- */
+  const nearby = useNearbyPlaces({ view, category, enabled: true });
+  const [searchResults, setSearchResults] = useState<PlaceSummary[]>([]);
+  const [selected, setSelected] = useState<{
+    id: string;
+    fallback: PlaceSummary | null;
+  } | null>(null);
+
+  /* --- position -------------------------------------------------------- */
+  const [currentLocation, setCurrentLocation] = useState<CurrentLocation>(null);
+  const [locating, setLocating] = useState(false);
+  const [locationNote, setLocationNote] = useState<string | null>(null);
+
+  /* --- chrome ---------------------------------------------------------- */
+  const [autoSpin, setAutoSpin] = useState(true);
+  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const memories = useMemo<MapPin[]>(() => pinRows ?? [], [pinRows]);
 
   const visible = useMemo(() => {
-    const term = search.trim().toLowerCase();
+    const term = memorySearch.trim().toLowerCase();
     return memories.filter((pin) => {
       if (scope === "mine" && pin.userId !== user?._id) return false;
       if (tone !== "any" && pin.tone !== tone) return false;
@@ -141,19 +200,99 @@ export default function MapPage() {
         .toLowerCase()
         .includes(term);
     });
-  }, [memories, scope, search, tone, user?._id]);
+  }, [memories, memorySearch, scope, tone, user?._id]);
 
   const globePins = useMemo(
     () => visible.map((pin) => toGlobePin(pin, user?._id)),
-    [visible, user?._id],
+    [user?._id, visible],
   );
+
+  /** Nearby places, search hits and the open place all share one marker list. */
+  const placeById = useMemo(() => {
+    const map = new Map<string, PlaceSummary>();
+    for (const place of [...nearby.rows, ...searchResults]) map.set(place.id, place);
+    if (selected?.fallback) map.set(selected.fallback.id, selected.fallback);
+    return map;
+  }, [nearby.rows, searchResults, selected]);
+
+  const globePlaces = useMemo(
+    () =>
+      Array.from(placeById.values()).map((place) => ({
+        id: place.id,
+        name: place.name,
+        category: place.category,
+        categoryLabel: place.categoryLabel,
+        lat: place.lat,
+        lng: place.lng,
+        rating: place.rating,
+        reviewCount: place.reviewCount,
+        distanceKm:
+          place.distanceKm ?? haversineKm(view.lat, view.lng, place.lat, place.lng),
+      })),
+    [placeById, view.lat, view.lng],
+  );
+
+  /**
+   * Progressive density: at regional zoom only dots, then names, then names,
+   * categories and distances — the closest ones to whatever we are facing.
+   */
+  const labelLevel = view.spanKm <= 45 ? 3 : view.spanKm <= 130 ? 2 : 1;
+  const labelIds = useMemo(() => {
+    if (labelLevel === 1) return [];
+    const count = labelLevel === 3 ? 14 : 8;
+    return [...globePlaces]
+      .sort(
+        (a, b) =>
+          haversineKm(view.lat, view.lng, a.lat, a.lng) -
+          haversineKm(view.lat, view.lng, b.lat, b.lng),
+      )
+      .slice(0, count)
+      .map((place) => place.id);
+  }, [globePlaces, labelLevel, view.lat, view.lng]);
+
+  /**
+   * Real places the person has a memory at. This is the one marker we promote:
+   * "I have actually been here" beats any generic recommendation.
+   */
+  const promotedPlaceIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const place of globePlaces) {
+      for (const pin of visible) {
+        if (haversineKm(place.lat, place.lng, pin.lat, pin.lng) * 1000 <= MEMORY_NEARBY_M) {
+          ids.push(place.id);
+          break;
+        }
+      }
+    }
+    return ids;
+  }, [globePlaces, visible]);
+
+  /** "You have been here" — a real memory close to the open place. */
+  const memoryLink = useMemo<PlaceMemoryLink | null>(() => {
+    const place = selected?.fallback;
+    if (!place) return null;
+    let best: { pin: MapPin; distanceM: number } | null = null;
+    for (const pin of memories) {
+      const distanceM = haversineKm(place.lat, place.lng, pin.lat, pin.lng) * 1000;
+      if (distanceM > MEMORY_NEARBY_M) continue;
+      if (!best || distanceM < best.distanceM) best = { pin, distanceM };
+    }
+    return best
+      ? {
+          id: best.pin._id,
+          title: best.pin.title,
+          happenedAt: best.pin.happenedAt,
+          mediaUrl: best.pin.mediaUrl,
+          distanceM: best.distanceM,
+        }
+      : null;
+  }, [memories, selected]);
 
   const openDialog = useCallback((next: { lat: number; lng: number } | null = null) => {
     setCoords(next);
     setDialogOpen(true);
   }, []);
 
-  /** Handles coming from the panel or the filmstrip: fly the globe to it. */
   const flyTo = useCallback(
     (pin: GlobePin) => {
       const source = memories.find((item) => item._id === pin.id);
@@ -173,7 +312,6 @@ export default function MapPage() {
     [memories, showNow],
   );
 
-  /** A memory was just saved: the globe travels to it and the card follows. */
   const handlePinned = useCallback(
     (memory: PinnedMemory) => {
       present({ ...memory, fresh: true });
@@ -181,14 +319,54 @@ export default function MapPage() {
     [present],
   );
 
-  const openMemory = useCallback((id: string) => navigate(`/m/${id}`), [navigate]);
-  const pickLocation = useCallback(
-    (next: { lat: number; lng: number }) => openDialog(next),
-    [openDialog],
+  /** Open a real place: dismiss any memory card, then show its details. */
+  const openPlace = useCallback(
+    (place: PlaceSummary) => {
+      dismiss();
+      setSelected({ id: place.id, fallback: place });
+      // Recentre only when the place is off to one side, so tapping a place
+      // you can already see does not yank the camera around.
+      const angular = haversineKm(view.lat, view.lng, place.lat, place.lng);
+      if (angular > Math.max(view.spanKm * 0.4, 3)) {
+        aim(place.lat, place.lng, Math.min(view.distance, 1.12));
+      }
+    },
+    [aim, dismiss, view.distance, view.lat, view.lng, view.spanKm],
   );
 
+  const locate = useCallback(() => {
+    if (!navigator.geolocation) {
+      setLocationNote("This browser will not share a location.");
+      return;
+    }
+    setLocating(true);
+    setLocationNote(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const fix = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setCurrentLocation(fix);
+        setLocating(false);
+        setLocationNote(`Located at ${formatLatLng(fix.lat, fix.lng)}`);
+        aim(fix.lat, fix.lng, 1.1);
+      },
+      () => {
+        setLocating(false);
+        setLocationNote("Location permission was denied. The globe stays yours to drive.");
+      },
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+  }, [aim]);
+
+  const openMemory = useCallback((id: string) => navigate(`/m/${id}`), [navigate]);
+
+  /* --- stage chrome ---------------------------------------------------- */
   const loading = pinRows === undefined;
   const empty = !loading && memories.length === 0;
+  const showEmptyCard = empty && view.spanKm > PLACES_SPAN_KM;
+  const scopes = nearby.config?.scopes ?? [];
 
   return (
     <div className="pm-dark flex min-h-dvh flex-col bg-[#0f0f11]">
@@ -207,17 +385,17 @@ export default function MapPage() {
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-3">
                   <h1 className="text-[1.75rem] leading-[1.05] font-extrabold tracking-[-0.025em] text-white sm:text-[2.1rem]">
-                    Your memory globe
+                    The living globe
                   </h1>
                   <span className="pm-chip">
                     {memories.length} {memories.length === 1 ? "memory" : "memories"} ·{" "}
-                    {globePins.length} on the globe
+                    {nearby.places.length} real places in view
                   </span>
                 </div>
                 <p className="mt-2.5 max-w-2xl text-sm leading-6 text-white/55">
-                  A living Earth, one dot per memory. Drag to spin it, scroll or pinch to
-                  zoom, and click anywhere on the surface to pin a memory at that exact
-                  point.
+                  Grab the Earth and take it anywhere: drag to spin, scroll or pinch to
+                  zoom, double-click to dive toward a spot. As you descend into a city,
+                  real Google places appear around you.
                 </p>
               </div>
 
@@ -240,45 +418,111 @@ export default function MapPage() {
               </div>
             </div>
 
-            <section className="relative min-h-[520px] flex-1 overflow-hidden rounded-[26px] border border-white/[0.07]">
+            <section className="relative min-h-[540px] flex-1 overflow-hidden rounded-[26px] border border-white/[0.07]">
               <div className="pm-stage-sky absolute inset-0" aria-hidden="true" />
 
               <div className="absolute inset-0">
                 <EarthGlobe
                   pins={globePins}
+                  places={globePlaces}
+                  labelIds={labelIds}
+                  promotedPlaceIds={promotedPlaceIds}
                   activeId={current?._id ?? null}
+                  activePlaceId={selected?.id ?? null}
                   justAddedId={current?.fresh ? current._id : null}
-                  focus={focus}
+                  command={command}
+                  currentLocation={currentLocation}
+                  autoSpin={autoSpin}
                   screenRef={screenRef}
+                  viewRef={viewSignal}
                   onFocusArrived={markArrived}
                   onOpenMemory={openMemory}
-                  onPickLocation={pickLocation}
+                  onOpenPlace={(id) => {
+                    const place = placeById.get(id);
+                    if (place) openPlace(place);
+                  }}
+                  onPickLocation={(next) => openDialog(next)}
                 />
               </div>
 
               <MemoryConnector
                 screenRef={screenRef}
                 cardRef={cardRef}
-                active={cardShown && current !== null}
+                active={cardShown && current !== null && !selected}
               />
 
-              <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 lg:top-4 lg:right-auto lg:left-4 lg:w-[432px]">
-                <div className="pm-panel pointer-events-auto p-3 backdrop-blur-xl">
-                  <GlobeFilters
-                    search={search}
-                    onSearch={setSearch}
-                    scope={scope}
-                    onScope={setScope}
-                    tone={tone}
-                    onTone={setTone}
-                    shown={globePins.length}
-                    total={memories.length}
+              {/* Search, categories and the memory filters */}
+              <div className="pointer-events-none absolute top-3 right-3 left-3 z-30 lg:top-4 lg:right-auto lg:left-4 lg:w-[430px]">
+                <div className="pm-panel pointer-events-auto max-h-[52vh] overflow-y-auto p-3 backdrop-blur-xl lg:max-h-none">
+                  <PlaceSearch
+                    view={view}
+                    configured={nearby.configured}
+                    results={searchResults}
+                    onSelect={openPlace}
+                    onResults={setSearchResults}
+                    onClearResults={() => setSearchResults([])}
+                    onLocate={(fix) => {
+                      setCurrentLocation(fix);
+                      setLocationNote(`Near me: ${formatLatLng(fix.lat, fix.lng)}`);
+                    }}
+                    onOpenPanel={openPlace}
                   />
+
+                  {scopes.length > 0 ? (
+                    <div className="mt-3">
+                      <PlaceCategories
+                        scopes={scopes}
+                        value={category}
+                        onChange={setCategory}
+                        loading={nearby.loading}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div className="mt-3 border-t border-white/[0.07] pt-3">
+                    <GlobeFilters
+                      search={memorySearch}
+                      onSearch={setMemorySearch}
+                      scope={scope}
+                      onScope={setScope}
+                      tone={tone}
+                      onTone={setTone}
+                      shown={globePins.length}
+                      total={memories.length}
+                    />
+                  </div>
+
+                  <div className="mt-3 border-t border-white/[0.07] pt-3">
+                    <ViewChip
+                      view={view}
+                      memories={globePins.length}
+                      places={globePlaces.length}
+                    />
+                    {nearby.error ? (
+                      <p className="mt-2 text-[11px] leading-5 text-[#ffb4b4]">
+                        {nearby.error}
+                      </p>
+                    ) : null}
+                    {locationNote ? (
+                      <p className="mt-2 text-[11px] leading-5 text-white/45">
+                        {locationNote}
+                      </p>
+                    ) : null}
+                  </div>
                 </div>
-                <p className="mt-3 hidden pl-1 text-[11px] font-medium tracking-[0.02em] text-white/35 lg:block">
-                  Drag to spin · scroll to zoom · click the surface to pin
-                </p>
               </div>
+
+              {/* Manual navigation, always in reach */}
+              <NavigationControls
+                onZoomIn={() => zoomBy(0.72)}
+                onZoomOut={() => zoomBy(1.38)}
+                onReset={resetView}
+                onLocate={locate}
+                locating={locating}
+                autoSpin={autoSpin}
+                onToggleAutoSpin={() => setAutoSpin((value) => !value)}
+                className="absolute top-1/2 right-3 z-30 -translate-y-1/2 lg:right-5"
+              />
 
               <div className="absolute bottom-4 left-4 z-30 hidden w-[280px] lg:block">
                 <RecentMemories
@@ -292,7 +536,7 @@ export default function MapPage() {
               <div
                 className={cn(
                   "absolute inset-x-3 bottom-3 z-30 lg:hidden",
-                  (empty || loading) && "hidden",
+                  showEmptyCard && "hidden",
                 )}
               >
                 <RecentStrip
@@ -309,18 +553,18 @@ export default function MapPage() {
                 </p>
               ) : null}
 
-              {empty ? (
-                <div className="pointer-events-none absolute inset-0 z-40 grid place-items-center p-6 pt-40 lg:pt-6">
+              {showEmptyCard ? (
+                <div className="pointer-events-none absolute inset-0 z-30 grid place-items-center p-6 pt-40 lg:pt-6">
                   <div className="pm-panel pointer-events-auto max-w-sm p-6 text-center backdrop-blur-xl">
                     <span className="mx-auto grid size-12 place-items-center rounded-full bg-[#ff6a2c]/15 text-[#ff8a4d]">
                       <MapPin className="size-5" aria-hidden="true" />
                     </span>
                     <h2 className="mt-4 text-lg font-bold tracking-[-0.01em] text-white">
-                      The globe is empty
+                      Nothing pinned yet
                     </h2>
                     <p className="mt-2 text-[13px] leading-6 text-white/55">
-                      Pin your first memory — a bridge at dawn, a kitchen table, a city you
-                      want to return to — and the Earth will fly straight to it.
+                      Zoom in anywhere to meet real places, or pin the first memory of your
+                      own — the Earth will fly straight to it.
                     </p>
                     <Button
                       type="button"
@@ -334,19 +578,37 @@ export default function MapPage() {
                 </div>
               ) : null}
 
+              {!showEmptyCard && nearby.withinRange && !nearby.configured ? (
+                <p className="pointer-events-none absolute bottom-4 left-1/2 z-30 hidden -translate-x-1/2 text-[11px] font-medium text-white/40 lg:block">
+                  <Globe2 className="mr-1.5 inline size-3.5 text-[#ff6a2c]" aria-hidden="true" />
+                  Add a Google Maps key to light up real places around this view.
+                </p>
+              ) : null}
+
               <MemoryNotification
                 memory={current}
-                shown={cardShown}
+                shown={cardShown && !selected}
                 queued={queued}
                 onDismiss={dismiss}
                 cardRef={cardRef}
               />
+
+              <PlacePanel
+                placeId={selected?.id ?? null}
+                fallback={selected?.fallback ?? null}
+                memory={memoryLink}
+                photoBase={nearby.config?.photoBase ?? null}
+                onClose={() => setSelected(null)}
+                onCentre={(place) => aim(place.lat, place.lng, Math.min(view.distance, 1.1))}
+                onPinMemory={(place) => openDialog({ lat: place.lat, lng: place.lng })}
+                onShowSaved={(memoryId) => navigate(`/m/${memoryId}`)}
+              />
             </section>
 
-            <p className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/35">
-              <Globe className="size-3.5 text-[#ff6a2c]" aria-hidden="true" />
-              Every point is a real latitude and longitude — memories stay attached to
-              their place as the Earth turns.
+            <p className="mt-4 text-[11px] leading-5 text-white/35">
+              Every point keeps its real latitude and longitude. Real places come from
+              Google Maps Platform and are cached as you explore, so panning the globe
+              stays fast.
             </p>
           </main>
 

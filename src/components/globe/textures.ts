@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 
 let glowTexture: THREE.Texture | null = null;
 let circleTexture: THREE.Texture | null = null;
+let locationTexture: THREE.Texture | null = null;
+let savedTexture: THREE.Texture | null = null;
 const countTextures = new Map<number, THREE.Texture>();
 
 /** Soft radial falloff, used for marker glows and the landing glow. */
@@ -54,6 +56,104 @@ export function getCircleTexture(): THREE.Texture {
   }
   circleTexture = new THREE.CanvasTexture(canvas);
   return circleTexture;
+}
+
+/**
+ * A category badge for a real Google place: a tinted disc with the category's
+ * glyph. Cached per glyph, so a hundred cafes share one texture.
+ */
+const placeTextures = new Map<string, THREE.Texture>();
+
+export function getPlaceTexture(glyph: string, color: string): THREE.Texture {
+  const key = `${glyph}|${color}`;
+  const cached = placeTextures.get(key);
+  if (cached) return cached;
+
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 54, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "rgba(255,255,255,0.82)";
+    ctx.stroke();
+    ctx.font =
+      "64px 'Apple Color Emoji','Segoe UI Emoji','Noto Color Emoji','Twemoji Mozilla',sans-serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillText(glyph, size / 2, size / 2 + 4);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  placeTextures.set(key, texture);
+  return texture;
+}
+
+/** The "you are here" crosshair, used for a granted GPS fix. */
+export function getLocationTexture(): THREE.Texture {
+  if (locationTexture) return locationTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 7;
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 36, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 11, 0, Math.PI * 2);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(size / 2, 6);
+    ctx.lineTo(size / 2, 30);
+    ctx.moveTo(size / 2, size - 6);
+    ctx.lineTo(size / 2, size - 30);
+    ctx.moveTo(6, size / 2);
+    ctx.lineTo(30, size / 2);
+    ctx.moveTo(size - 6, size / 2);
+    ctx.lineTo(size - 30, size / 2);
+    ctx.stroke();
+  }
+  locationTexture = new THREE.CanvasTexture(canvas);
+  locationTexture.colorSpace = THREE.SRGBColorSpace;
+  return locationTexture;
+}
+
+/** A saved place reads as a ring around a dot, quieter than a memory. */
+export function getSavedTexture(): THREE.Texture {
+  if (savedTexture) return savedTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (ctx) {
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 42, 0, Math.PI * 2);
+    ctx.fillStyle = "rgba(94,234,212,0.22)";
+    ctx.fill();
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "#5eead4";
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(size / 2, size / 2, 15, 0, Math.PI * 2);
+    ctx.fillStyle = "#5eead4";
+    ctx.fill();
+  }
+  savedTexture = new THREE.CanvasTexture(canvas);
+  savedTexture.colorSpace = THREE.SRGBColorSpace;
+  return savedTexture;
 }
 
 /** A count badge for a cluster of memories, cached per number. */

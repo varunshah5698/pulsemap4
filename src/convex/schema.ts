@@ -78,6 +78,8 @@ const schema = defineSchema(
       tags: v.array(v.string()),
       visibility: visibilityValidator,
       mediaId: v.optional(v.id("_storage")),
+      /** Set when the pin was saved from a real Google place. */
+      googlePlaceId: v.optional(v.string()),
       createdAt: v.number(),
       updatedAt: v.number(),
     })
@@ -153,6 +155,55 @@ const schema = defineSchema(
       .index("by_user", ["userId"])
       .index("by_experience_start", ["experienceId", "startsAt"])
       .index("by_status", ["status"]),
+
+    // Real Google Places, cached so panning the globe costs nothing.
+    places: defineTable({
+      googlePlaceId: v.string(),
+      name: v.string(),
+      /** Google's primary type, e.g. "cafe" — our filter key. */
+      category: v.string(),
+      /** Google's localised label, e.g. "Cafe". */
+      categoryLabel: v.string(),
+      lat: v.number(),
+      lng: v.number(),
+      /** Grid cell the row was discovered in, so reads stay index-only. */
+      cell: v.string(),
+      address: v.optional(v.string()),
+      shortAddress: v.optional(v.string()),
+      rating: v.optional(v.number()),
+      reviewCount: v.optional(v.number()),
+      priceLevel: v.optional(v.string()),
+      businessStatus: v.optional(v.string()),
+      website: v.optional(v.string()),
+      phone: v.optional(v.string()),
+      googleMapsUri: v.optional(v.string()),
+      /** Google photo resource names; images stream through our own proxy. */
+      photos: v.optional(v.array(v.string())),
+      openNow: v.optional(v.boolean()),
+      /** Weekday opening lines, exactly as Google words them. */
+      hours: v.optional(v.array(v.string())),
+      summary: v.optional(v.string()),
+      types: v.optional(v.array(v.string())),
+      /** Which lookups have contributed to this row. */
+      sources: v.array(v.string()),
+      /** Which category filters this row was discovered for. */
+      scopes: v.optional(v.array(v.string())),
+      fetchedAt: v.number(),
+      /** When a full Place Details call last filled in the rich fields. */
+      detailsAt: v.optional(v.number()),
+    })
+      .index("by_cell", ["cell"])
+      .index("by_google_id", ["googlePlaceId"]),
+
+    // Which areas we have already asked Google about, and how widely.
+    placeScans: defineTable({
+      cell: v.string(),
+      /** "all" or a category key, so each filter is billed at most once. */
+      scope: v.string(),
+      radiusKm: v.number(),
+      count: v.number(),
+      scannedAt: v.number(),
+    }).index("by_cell_scope", ["cell", "scope"]),
 
     orders: defineTable({
       userId: v.id("users"),

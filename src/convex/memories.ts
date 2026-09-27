@@ -160,6 +160,8 @@ export const create = mutation({
     tags: v.array(v.string()),
     visibility: visibilityValidator,
     mediaId: v.optional(v.id("_storage")),
+    /** Present when the pin was saved straight off a real Google place. */
+    googlePlaceId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const userId = await requireUserId(ctx);
@@ -184,6 +186,7 @@ export const create = mutation({
         .slice(0, 6),
       visibility: args.visibility,
       mediaId: args.mediaId,
+      googlePlaceId: args.googlePlaceId,
       createdAt: now,
       updatedAt: now,
     });

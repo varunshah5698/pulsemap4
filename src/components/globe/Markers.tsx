@@ -3,7 +3,13 @@ import { memo, useEffect, useMemo, useRef, useState, type RefObject } from "reac
 import * as THREE from "three";
 import { toneMeta } from "@/components/pulsemap/tone";
 import { angularDistance, latLngToVector3, quaternionFromNormal, GLOBE_RADIUS } from "./geo";
-import { getCircleTexture, getCountTexture, getGlowTexture, useImageTexture } from "./textures";
+import {
+  getCircleTexture,
+  getCountTexture,
+  getGlowTexture,
+  getSavedTexture,
+  useImageTexture,
+} from "./textures";
 
 const DOT_RADIUS = 0.0115;
 const HIT_RADIUS = 0.052;
@@ -21,6 +27,8 @@ export type GlobePin = {
   createdAt: number;
   visibility: string;
   mine: boolean;
+  /** A Google place the person saved, rather than something they witnessed. */
+  saved?: boolean;
 };
 
 /** Everything the frame loop needs to animate a marker without React. */
@@ -198,6 +206,8 @@ const MarkerRow = memo(function MarkerRow({
   registry: RefObject<Map<string, MarkerHandle>>;
 }) {
   const meta = toneMeta(pin.tone);
+  const saved = pin.saved === true;
+  const accent = saved ? "#5eead4" : meta.hex;
   const [hovered, setHovered] = useState(false);
   const group = useRef<THREE.Group>(null);
   const ring = useRef<THREE.Mesh>(null);
@@ -273,14 +283,14 @@ const MarkerRow = memo(function MarkerRow({
     <group ref={group} position={local} quaternion={quaternion}>
       <mesh position={[0, 0, 0.004]}>
         <sphereGeometry args={[DOT_RADIUS, 14, 14]} />
-        <meshBasicMaterial color={meta.hex} toneMapped={false} />
+        <meshBasicMaterial color={accent} toneMapped={false} />
       </mesh>
 
       <sprite ref={halo} position={[0, 0, 0.008]} scale={[0.12, 0.12, 0.12]}>
         <spriteMaterial
           ref={haloMaterial}
-          map={getGlowTexture()}
-          color={meta.hex}
+          map={saved ? getSavedTexture() : getGlowTexture()}
+          color={accent}
           transparent
           opacity={0.45}
           depthWrite={false}
@@ -293,7 +303,7 @@ const MarkerRow = memo(function MarkerRow({
         <ringGeometry args={[0.019, 0.0245, 44]} />
         <meshBasicMaterial
           ref={ringMaterial}
-          color={active ? "#ff6a2c" : meta.hex}
+          color={active ? "#ff6a2c" : accent}
           transparent
           opacity={0.8}
           depthWrite={false}
@@ -354,7 +364,7 @@ const MarkerRow = memo(function MarkerRow({
             )}
             <span className="min-w-0">
               <span className="block truncate text-[11px] font-semibold tracking-[0.1em] text-white/45 uppercase">
-                {pin.placeName || "Unplaced"}
+                {saved ? "Saved place" : pin.placeName || "Unplaced"}
               </span>
               <span className="mt-0.5 block truncate text-[13px] font-semibold text-white">
                 {pin.title}

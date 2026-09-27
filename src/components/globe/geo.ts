@@ -6,6 +6,73 @@ export const RAD2DEG = 180 / Math.PI;
 /** Radius of the globe in scene units. */
 export const GLOBE_RADIUS = 1;
 
+/** Real world radius, for turning camera distance into kilometres. */
+export const EARTH_RADIUS_KM = 6371;
+
+/**
+ * The camera distance the marker sizes are authored for. Markers are scaled by
+ * `markerZoomScale` so they keep a roughly constant size on screen as the
+ * person descends from orbit into a city.
+ */
+export const BASE_DISTANCE = 3.1;
+
+/** How far above the surface the camera may descend: ~127 km up, city scale. */
+export const MIN_DISTANCE = 1.02;
+export const MAX_DISTANCE = 7;
+
+/** Big enough to see a ridge; small enough that the poles never flip over. */
+export const MAX_TILT = 1.4;
+
+/** Angular radius of the patch of Earth on screen, in kilometres. */
+export function viewRadiusKm(distance: number, fovDeg = 32): number {
+  const half = Math.tan((fovDeg * DEG2RAD) / 2);
+  const altitude = Math.max(distance - GLOBE_RADIUS, 0.0004);
+  return EARTH_RADIUS_KM * Math.atan(half * altitude);
+}
+
+/** World-space scale that keeps a marker the same size on screen. */
+export function markerZoomScale(distance: number): number {
+  return THREE.MathUtils.clamp(
+    (distance - GLOBE_RADIUS) / (BASE_DISTANCE - GLOBE_RADIUS),
+    0.024,
+    4,
+  );
+}
+
+function toRadians(value: number): number {
+  return value * DEG2RAD;
+}
+
+/** Great-circle distance, for "is this memory at that place?". */
+export function haversineKm(
+  aLat: number,
+  aLng: number,
+  bLat: number,
+  bLng: number,
+): number {
+  const dLat = toRadians(bLat - aLat);
+  const dLng = toRadians(bLng - aLng);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRadians(aLat)) * Math.cos(toRadians(bLat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)));
+}
+
+/** A point {"dx":"km north", "dy":"km east"} away, for camera framing maths. */
+export function offsetLatLng(
+  lat: number,
+  lng: number,
+  northKm: number,
+  eastKm: number,
+): { lat: number; lng: number } {
+  const nextLat = lat + northKm / 111.32;
+  const nextLng = lng + eastKm / (111.32 * Math.max(0.2, Math.cos(toRadians(lat))));
+  return {
+    lat: THREE.MathUtils.clamp(nextLat, -85, 85),
+    lng: ((nextLng + 540) % 360) - 180,
+  };
+}
+
 const Z_AXIS = new THREE.Vector3(0, 0, 1);
 
 /**
@@ -37,9 +104,6 @@ export function vector3ToLatLng(point: THREE.Vector3): { lat: number; lng: numbe
   const lng = Math.atan2(point.z, -point.x) * RAD2DEG - 180;
   return { lat, lng: ((lng + 540) % 360) - 180 };
 }
-
-/** How far the globe may tilt before the poles start to somersault. */
-export const MAX_TILT = 1.4;
 
 /**
  * Where a point on the globe should be, so a rotation can aim at it.
