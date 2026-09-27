@@ -1,16 +1,18 @@
+import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
+import { api } from "@/convex/_generated/api";
+import { useQuery } from "convex/react";
 import {
   ArrowRight,
   Bell,
   Compass,
   LayoutDashboard,
+  LogOut,
   Map,
   Plus,
   Search,
-  Settings,
-  ShieldCheck,
 } from "lucide-react";
-import { Link, useLocation } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 
 export const DASHBOARD_TABS = ["overview", "memories", "reminders", "visits"] as const;
 export type DashboardTab = (typeof DASHBOARD_TABS)[number];
@@ -22,12 +24,12 @@ const TAB_LABELS: Record<DashboardTab, string> = {
   visits: "Visits",
 };
 
+/** Shared destinations for both the icon rail and the compact tab row. */
 const DESTINATIONS = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/map", label: "Live map", icon: Map },
   { to: "/explore", label: "Explore", icon: Compass },
-  { to: "/admin", label: "Admin", icon: ShieldCheck },
-];
+] as const;
 
 function initials(name: string) {
   return name
@@ -36,6 +38,12 @@ function initials(name: string) {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+/** Open (not yet done) reminders, for the rail badge and the bell. */
+export function useOpenReminderCount() {
+  const reminders = useQuery(api.reminders.listMine);
+  return (reminders ?? []).filter((item) => !item.done).length;
 }
 
 export function DashboardRail({
@@ -99,6 +107,74 @@ export function DashboardRail({
   );
 }
 
+/** Search, sign out and the reminder bell — identical on every screen. */
+export function TopBarActions({ reminderCount }: { reminderCount: number }) {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
+
+  return (
+    <div className="flex shrink-0 items-center gap-3">
+      <Link
+        to="/explore"
+        className="pm-icon-btn"
+        aria-label="Search the catalogue"
+        title="Search the catalogue"
+      >
+        <Search className="size-5" aria-hidden="true" />
+      </Link>
+      <button
+        type="button"
+        onClick={async () => {
+          await signOut();
+          navigate("/");
+        }}
+        className="pm-icon-btn pm-icon-square"
+        aria-label="Sign out"
+        title="Sign out"
+      >
+        <LogOut className="size-5" aria-hidden="true" />
+      </button>
+      <Link
+        to="/dashboard"
+        className="pm-icon-btn pm-icon-circle relative"
+        aria-label={`Reminders, ${reminderCount} open`}
+        title="Reminders"
+      >
+        <Bell className="size-5" aria-hidden="true" />
+        {reminderCount > 0 ? (
+          <span className="absolute -top-0.5 -right-0.5 grid min-w-[20px] place-items-center rounded-full bg-[#ff6a2c] px-1.5 py-0.5 text-[10px] font-bold text-white">
+            {reminderCount}
+          </span>
+        ) : null}
+      </Link>
+    </div>
+  );
+}
+
+/** Compact destinations for narrow screens, where the rail is hidden. */
+function CompactNav() {
+  const location = useLocation();
+
+  return (
+    <nav aria-label="Workspace, compact" className="flex gap-2 overflow-x-auto pb-4 sm:hidden">
+      {DESTINATIONS.map((item) => (
+        <Link
+          key={item.to}
+          to={item.to}
+          className={cn(
+            "pm-panel-soft flex items-center gap-2 px-3 py-2 text-xs whitespace-nowrap text-white/70",
+            location.pathname === item.to && "text-white",
+          )}
+        >
+          <item.icon className="size-3.5" aria-hidden="true" />
+          {item.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+/** The dashboard's own section tabs. */
 export function DashboardTopBar({
   tab,
   onTab,
@@ -108,14 +184,12 @@ export function DashboardTopBar({
   onTab: (next: DashboardTab) => void;
   reminderCount: number;
 }) {
-  const location = useLocation();
-
   return (
     <header className="border-b border-white/[0.06] px-5 sm:px-7">
       <div className="flex items-center justify-between gap-6">
         <nav
           aria-label="Dashboard sections"
-          className="flex flex-1 items-center gap-7 overflow-x-auto pt-6 pb-0"
+          className="flex flex-1 items-center gap-7 overflow-x-auto pt-6"
         >
           {DASHBOARD_TABS.map((item) => (
             <button
@@ -130,57 +204,45 @@ export function DashboardTopBar({
             </button>
           ))}
         </nav>
-
-        <div className="flex shrink-0 items-center gap-3">
-          <Link
-            to="/explore"
-            className="pm-icon-btn"
-            aria-label="Search the catalogue"
-            title="Search the catalogue"
-          >
-            <Search className="size-5" aria-hidden="true" />
-          </Link>
-          <Link
-            to="/admin"
-            className="pm-icon-btn pm-icon-square"
-            aria-label="Workspace settings"
-            title="Workspace settings"
-          >
-            <Settings className="size-5" aria-hidden="true" />
-          </Link>
-          <button
-            type="button"
-            onClick={() => onTab("reminders")}
-            className="pm-icon-btn pm-icon-circle relative"
-            aria-label={`Reminders, ${reminderCount} open`}
-            title="Reminders"
-          >
-            <Bell className="size-5" aria-hidden="true" />
-            {reminderCount > 0 ? (
-              <span className="absolute -top-0.5 -right-0.5 grid min-w-[20px] place-items-center rounded-full bg-[#ff6a2c] px-1.5 py-0.5 text-[10px] font-bold text-white">
-                {reminderCount}
-              </span>
-            ) : null}
-          </button>
-        </div>
+        <TopBarActions reminderCount={reminderCount} />
       </div>
 
-      {/* Compact destinations for narrow screens, where the rail is hidden. */}
-      <nav aria-label="Workspace" className="flex gap-2 pb-4 sm:hidden">
-        {DESTINATIONS.map((item) => (
-          <Link
-            key={item.to}
-            to={item.to}
-            className={cn(
-              "pm-panel-soft flex items-center gap-2 px-3 py-2 text-xs text-white/70",
-              location.pathname === item.to && "text-white",
-            )}
-          >
-            <item.icon className="size-3.5" aria-hidden="true" />
-            {item.label}
-          </Link>
-        ))}
-      </nav>
+      <CompactNav />
+    </header>
+  );
+}
+
+/** Route-driven tabs, used by every screen outside the dashboard. */
+export function WorkspaceTopBar({ reminderCount }: { reminderCount: number }) {
+  const location = useLocation();
+
+  return (
+    <header className="border-b border-white/[0.06] px-5 sm:px-7">
+      <div className="flex items-center justify-between gap-6">
+        <nav
+          aria-label="Workspace sections"
+          className="flex flex-1 items-center gap-7 overflow-x-auto pt-6"
+        >
+          {DESTINATIONS.map((item) => {
+            const active =
+              location.pathname === item.to || location.pathname.startsWith(`${item.to}/`);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className="pm-tab"
+                data-active={active}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+        <TopBarActions reminderCount={reminderCount} />
+      </div>
+
+      <CompactNav />
     </header>
   );
 }

@@ -206,37 +206,10 @@
   font-display: swap;
 }
 
-/* Leaflet base styles (the map page) kept local so no extra CSS import
-   ordering can strip the papery map tint. */
-#pulse-map.leaflet-container {
-  background: #e7e3d7;
+/* The map only ever renders inside the signed-in app chrome, so its tint,
+   controls and popups are styled in dashboard.css under `.pm-dark`. */
+.leaflet-container {
   font-family: inherit;
-  border-radius: 0;
-}
-#pulse-map .leaflet-tile-pane {
-  filter: grayscale(0.85) sepia(0.14) contrast(0.94) brightness(1.04);
-}
-#pulse-map .leaflet-control-zoom {
-  border: 1px solid var(--rule) !important;
-  border-radius: 0 !important;
-}
-#pulse-map .leaflet-popup-content-wrapper,
-#pulse-map .leaflet-popup-tip {
-  border-radius: 0;
-  background: var(--card);
-}
-.leaflet-control-attribution {
-  background: rgba(240, 238, 230, 0.86) !important;
-  color: #6e6a5c !important;
-  font-size: 10px !important;
-}
-.leaflet-control-attribution a {
-  color: #3a4e6d !important;
-}
-.leaflet-bar a {
-  background: var(--card) !important;
-  color: var(--foreground) !important;
-  border-color: var(--rule) !important;
 }
 .pulse-pin {
   display: grid;

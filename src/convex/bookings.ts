@@ -1,7 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { currentUser, displayName, isAdmin, requireAdmin, requireUserId } from "./access";
-import { bookingStatusValidator } from "./schema";
+import { currentUser, displayName, isAdmin, requireUserId } from "./access";
 
 export const listMine = query({
   args: {},
@@ -28,33 +27,6 @@ export const listMine = query({
           imageUrl: experience?.imageUrl ?? "",
           orderStatus: order?.status ?? null,
           orderId: order?._id ?? null,
-        };
-      }),
-    );
-  },
-});
-
-export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const items = await ctx.db.query("bookings").order("desc").take(200);
-    return await Promise.all(
-      items.map(async (booking) => {
-        const [experience, guest, order] = await Promise.all([
-          ctx.db.get(booking.experienceId),
-          ctx.db.get(booking.userId),
-          ctx.db
-            .query("orders")
-            .withIndex("by_booking", (q) => q.eq("bookingId", booking._id))
-            .order("desc")
-            .first(),
-        ]);
-        return {
-          ...booking,
-          experienceTitle: experience?.title ?? "Trail removed",
-          guestAccount: displayName(guest),
-          orderStatus: order?.status ?? null,
         };
       }),
     );
@@ -132,14 +104,6 @@ export const cancel = mutation({
     for (const order of orders) {
       if (order.status !== "paid") await ctx.db.patch(order._id, { status: "cancelled" });
     }
-  },
-});
-
-export const setStatus = mutation({
-  args: { id: v.id("bookings"), status: bookingStatusValidator },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    await ctx.db.patch(args.id, { status: args.status });
   },
 });
 

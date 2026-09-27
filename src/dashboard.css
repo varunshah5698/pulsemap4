@@ -1,305 +1,387 @@
 /* ============================================================
-   Pulsemap dashboard — dark cockpit theme.
-   Scoped to `.pm-dark` so the papery pages keep their own look.
+   Pulsemap app chrome — the dark cockpit theme.
+   Everything lives in the components layer so Tailwind utilities
+   can still override individual pieces, and every rule is scoped
+   inside `.pm-dark` so the papery landing and auth pages keep
+   their own look.
    ============================================================ */
 
-.pm-dark {
-  --background: #0f0f11;
-  --foreground: #ffffff;
-  --card: #17171a;
-  --card-foreground: #ffffff;
-  --popover: #1b1b1f;
-  --popover-foreground: #ffffff;
-  --primary: #ff6a2c;
-  --primary-foreground: #17120e;
-  --secondary: #232327;
-  --secondary-foreground: #ffffff;
-  --muted: #1e1e22;
-  --muted-foreground: #9a9aa4;
-  --accent: #232327;
-  --accent-foreground: #ffffff;
-  --destructive: #ff5c5c;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.1);
-  --ring: rgba(255, 255, 255, 0.28);
+@layer components {
+  /* --- Tokens -------------------------------------------------------- */
 
-  /* The card primitives below read these. */
-  --rule: rgba(255, 255, 255, 0.07);
-  --rule-strong: rgba(255, 255, 255, 0.16);
-  --panel: #17171a;
-  --panel-2: #1d1d21;
-  --panel-3: #232327;
-  --ink-soft: #9a9aa4;
-  --ink-faint: #6c6c76;
-  --orange: #ff6a2c;
-  --blue: #2d6bff;
-  --track: #2b2b30;
+  .pm-dark {
+    --background: #0f0f11;
+    --foreground: #ffffff;
+    --card: #17171a;
+    --card-foreground: #ffffff;
+    --popover: #1b1b20;
+    --popover-foreground: #ffffff;
+    --primary: #ff6a2c;
+    --primary-foreground: #ffffff;
+    --secondary: #232327;
+    --secondary-foreground: #ffffff;
+    --muted: #1e1e22;
+    --muted-foreground: #9a9aa4;
+    --accent: #232327;
+    --accent-foreground: #ffffff;
+    --destructive: #ff5c5c;
+    --border: rgba(255, 255, 255, 0.08);
+    --input: rgba(255, 255, 255, 0.12);
+    --ring: rgba(255, 255, 255, 0.28);
 
-  background: #0f0f11;
-  color: #ffffff;
-  font-family: Inter, Satoshi, system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-}
+    /* The card primitives below read these. */
+    --rule: rgba(255, 255, 255, 0.07);
+    --rule-strong: rgba(255, 255, 255, 0.16);
+    --panel: #17171a;
+    --panel-2: #1d1d21;
+    --panel-3: #232327;
+    --ink-soft: #9a9aa4;
+    --ink-faint: #6c6c76;
+    --orange: #ff6a2c;
+    --blue: #2d6bff;
+    --track: #2b2b30;
 
-/* --- Surfaces -------------------------------------------------------- */
+    /* Rounder corners for every shadcn primitive in the app chrome. */
+    --radius: 1rem;
 
-.pm-panel {
-  background: var(--panel);
-  border: 1px solid var(--rule);
-  border-radius: 26px;
-}
+    background: #0f0f11;
+    color: #ffffff;
+    font-family:
+      Inter, Satoshi, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
 
-.pm-panel-soft {
-  background: var(--panel-2);
-  border: 1px solid rgba(255, 255, 255, 0.04);
-  border-radius: 22px;
-}
+  /* --- Surfaces ------------------------------------------------------ */
 
-.pm-panel-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  line-height: 1.2;
-  color: rgba(255, 255, 255, 0.92);
-  letter-spacing: -0.01em;
-}
+  .pm-panel {
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    border-radius: 26px;
+  }
 
-.pm-metric {
-  font-size: clamp(1.75rem, 2.4vw, 2.35rem);
-  font-weight: 700;
-  line-height: 1;
-  letter-spacing: -0.03em;
-  color: #ffffff;
-  font-variant-numeric: tabular-nums;
-}
+  .pm-panel-soft {
+    background: var(--panel-2);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 22px;
+  }
 
-.pm-metric-unit {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: var(--ink-soft);
-  letter-spacing: 0;
-}
+  .pm-panel-link {
+    transition:
+      border-color 200ms ease,
+      transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-.pm-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 0.625rem;
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.7);
-  background: rgba(255, 255, 255, 0.05);
-}
+  .pm-panel-link:hover {
+    border-color: var(--rule-strong);
+    transform: translateY(-2px);
+  }
 
-/* --- Rail ------------------------------------------------------------ */
+  .pm-panel-title {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    line-height: 1.2;
+    color: rgba(255, 255, 255, 0.92);
+    letter-spacing: -0.01em;
+  }
 
-.pm-rail {
-  background: #141416;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  border-radius: 32px;
-}
+  .pm-metric {
+    font-size: clamp(1.75rem, 2.4vw, 2.35rem);
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+    font-variant-numeric: tabular-nums;
+  }
 
-.pm-rail-link {
-  position: relative;
-  display: grid;
-  place-items: center;
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.38);
-  transition:
-    color 200ms ease,
-    background 200ms ease,
-    transform 200ms ease;
-}
+  .pm-metric-unit {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+    letter-spacing: 0;
+  }
 
-.pm-rail-link:hover {
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(255, 255, 255, 0.05);
-}
+  .pm-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border-radius: 999px;
+    padding: 6px 10px;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.7);
+    background: rgba(255, 255, 255, 0.05);
+  }
 
-.pm-rail-link[data-active="true"] {
-  color: #ffffff;
-  background: rgba(255, 255, 255, 0.07);
-}
+  /* --- Rail ---------------------------------------------------------- */
 
-/* The orange tick that marks the active destination. */
-.pm-rail-link[data-active="true"]::before {
-  content: "";
-  position: absolute;
-  left: -14px;
-  top: 50%;
-  width: 3px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--orange);
-  transform: translateY(-50%);
-}
+  .pm-rail {
+    background: #141416;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 32px;
+  }
 
-/* --- Tabs ------------------------------------------------------------ */
+  .pm-rail-link {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    color: rgba(255, 255, 255, 0.38);
+    transition:
+      color 200ms ease,
+      background 200ms ease,
+      transform 200ms ease;
+  }
 
-.pm-tab {
-  position: relative;
-  padding: 0 2px 18px;
-  font-size: 0.9375rem;
-  font-weight: 500;
-  color: rgba(255, 255, 255, 0.45);
-  white-space: nowrap;
-  transition: color 200ms ease;
-}
+  .pm-rail-link:hover {
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(255, 255, 255, 0.05);
+  }
 
-.pm-tab:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
+  .pm-rail-link[data-active="true"] {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.07);
+  }
 
-.pm-tab[data-active="true"] {
-  color: #ffffff;
-  font-weight: 600;
-}
+  /* The orange tick that marks the active destination. */
+  .pm-rail-link[data-active="true"]::before {
+    content: "";
+    position: absolute;
+    left: -14px;
+    top: 50%;
+    width: 3px;
+    height: 22px;
+    border-radius: 999px;
+    background: var(--orange);
+    transform: translateY(-50%);
+  }
 
-.pm-tab[data-active="true"]::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  border-radius: 999px;
-  background: var(--orange);
-}
+  /* --- Tabs ---------------------------------------------------------- */
 
-/* --- Icon buttons ---------------------------------------------------- */
+  .pm-tab {
+    position: relative;
+    padding: 0 2px 18px;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    transition: color 200ms ease;
+  }
 
-.pm-icon-btn {
-  display: grid;
-  place-items: center;
-  color: rgba(255, 255, 255, 0.75);
-  transition:
-    background 200ms ease,
-    color 200ms ease,
-    transform 200ms ease;
-}
+  .pm-tab:hover {
+    color: rgba(255, 255, 255, 0.8);
+  }
 
-.pm-icon-btn:hover {
-  color: #ffffff;
-  transform: translateY(-1px);
-}
+  .pm-tab[data-active="true"] {
+    color: #ffffff;
+    font-weight: 600;
+  }
 
-.pm-icon-square {
-  width: 46px;
-  height: 46px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-}
+  .pm-tab[data-active="true"]::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 3px;
+    border-radius: 999px;
+    background: var(--orange);
+  }
 
-.pm-icon-square:hover {
-  background: rgba(255, 255, 255, 0.11);
-}
+  /* --- Icon buttons -------------------------------------------------- */
 
-.pm-icon-circle {
-  width: 46px;
-  height: 46px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-}
+  .pm-icon-btn {
+    display: grid;
+    place-items: center;
+    color: rgba(255, 255, 255, 0.75);
+    transition:
+      background 200ms ease,
+      color 200ms ease,
+      transform 200ms ease;
+  }
 
-.pm-icon-circle:hover {
-  background: rgba(255, 255, 255, 0.14);
-}
+  .pm-icon-btn:hover {
+    color: #ffffff;
+    transform: translateY(-1px);
+  }
 
-/* --- Banner ---------------------------------------------------------- */
+  .pm-icon-square {
+    width: 46px;
+    height: 46px;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.06);
+  }
 
-.pm-banner {
-  position: relative;
-  overflow: hidden;
-  border-radius: 26px;
-  background: linear-gradient(112deg, #ff7f45 0%, #f9601f 52%, #ea4f12 100%);
-}
+  .pm-icon-square:hover {
+    background: rgba(255, 255, 255, 0.11);
+  }
 
-.pm-banner-blob {
-  position: absolute;
-  border-radius: 999px;
-  filter: blur(26px);
-  opacity: 0.5;
-  pointer-events: none;
-}
+  .pm-icon-circle {
+    width: 46px;
+    height: 46px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.09);
+  }
 
-.pm-circle-cta {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border-radius: 20px;
-  background: #101014;
-  color: #ffffff;
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
-  transition:
-    transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
-    background 200ms ease;
-}
+  .pm-icon-circle:hover {
+    background: rgba(255, 255, 255, 0.14);
+  }
 
-.pm-circle-cta:hover {
-  background: #1b1b20;
-  transform: translateY(-2px);
-}
+  /* --- Banner -------------------------------------------------------- */
 
-.pm-circle-cta:active {
-  transform: scale(0.96);
-}
+  .pm-banner {
+    position: relative;
+    overflow: hidden;
+    border-radius: 26px;
+    background: linear-gradient(112deg, #ff7f45 0%, #f9601f 52%, #ea4f12 100%);
+  }
 
-/* --- Segmented control ----------------------------------------------- */
+  .pm-banner-blob {
+    position: absolute;
+    border-radius: 999px;
+    filter: blur(26px);
+    opacity: 0.5;
+    pointer-events: none;
+  }
 
-.pm-segmented {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-}
+  .pm-circle-cta {
+    display: grid;
+    place-items: center;
+    width: 58px;
+    height: 58px;
+    border-radius: 20px;
+    background: #101014;
+    color: #ffffff;
+    box-shadow: 0 12px 26px rgba(0, 0, 0, 0.32);
+    transition:
+      transform 200ms cubic-bezier(0.22, 1, 0.36, 1),
+      background 200ms ease;
+  }
 
-.pm-segment {
-  flex: 1;
-  border-radius: 999px;
-  padding: 10px 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.55);
-  transition:
-    background 200ms ease,
-    color 200ms ease;
-}
+  .pm-circle-cta:hover {
+    background: #1b1b20;
+    transform: translateY(-2px);
+  }
 
-.pm-segment:hover {
-  color: #ffffff;
-}
+  .pm-circle-cta:active {
+    transform: scale(0.96);
+  }
 
-.pm-segment[data-active="true"] {
-  background: var(--orange);
-  color: #ffffff;
-}
+  /* --- Segmented control --------------------------------------------- */
 
-/* --- Lists ----------------------------------------------------------- */
+  .pm-segmented {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.04);
+  }
 
-.pm-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 18px;
-  padding: 12px;
-  transition: background 200ms ease;
-}
+  .pm-segment {
+    flex: 1;
+    border-radius: 999px;
+    padding: 10px 0;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.55);
+    transition:
+      background 200ms ease,
+      color 200ms ease;
+  }
 
-.pm-row:hover {
-  background: rgba(255, 255, 255, 0.04);
-}
+  .pm-segment:hover {
+    color: #ffffff;
+  }
 
-/* --- Entrance -------------------------------------------------------- */
+  .pm-segment[data-active="true"] {
+    background: var(--orange);
+    color: #ffffff;
+  }
 
-.pm-rise {
-  animation: pm-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  /* --- Lists --------------------------------------------------------- */
+
+  .pm-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-radius: 18px;
+    padding: 12px;
+    transition: background 200ms ease;
+  }
+
+  .pm-row:hover {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .pm-row[data-active="true"] {
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  /* --- Papery components, re-read on dark ---------------------------- */
+
+  .pm-dark .micro-label {
+    color: var(--muted-foreground);
+  }
+
+  .pm-dark .hairline-grid > * + * {
+    border-top: 1px solid var(--rule);
+  }
+
+  .pm-dark .paper-card {
+    border-color: var(--rule);
+    background: var(--panel);
+  }
+
+  /* --- The map, tuned for the dark chrome ---------------------------- */
+
+  .pm-dark #pulse-map.leaflet-container {
+    background: #14141a;
+    border-radius: 24px;
+    overflow: hidden;
+    font-family: inherit;
+  }
+
+  .pm-dark #pulse-map .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(185deg) brightness(0.94) contrast(0.92) saturate(0.55);
+  }
+
+  .pm-dark #pulse-map .leaflet-control-zoom {
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 14px !important;
+    overflow: hidden;
+  }
+
+  .pm-dark #pulse-map .leaflet-bar a {
+    background: #1b1b20 !important;
+    color: #ffffff !important;
+    border-color: rgba(255, 255, 255, 0.08) !important;
+  }
+
+  .pm-dark #pulse-map .leaflet-popup-content-wrapper,
+  .pm-dark #pulse-map .leaflet-popup-tip {
+    background: #1b1b20;
+    color: #ffffff;
+    border-radius: 16px;
+  }
+
+  .pm-dark .leaflet-control-attribution {
+    background: rgba(15, 15, 17, 0.86) !important;
+    color: rgba(255, 255, 255, 0.42) !important;
+    font-size: 10px !important;
+  }
+
+  .pm-dark .leaflet-control-attribution a {
+    color: #ff6a2c !important;
+  }
+
+  /* --- Entrance ------------------------------------------------------ */
+
+  .pm-rise {
+    animation: pm-rise 620ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+  }
 }
 
 @keyframes pm-rise {

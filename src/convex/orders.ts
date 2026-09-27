@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { currentUser, requireAdmin, requireUserId } from "./access";
+import { currentUser, requireUserId } from "./access";
 
 export const get = query({
   args: { id: v.id("orders") },
@@ -40,29 +40,6 @@ export const listMine = query({
           experienceTitle: experience?.title ?? "Trail removed",
           startsAt: booking?.startsAt ?? null,
           partySize: booking?.partySize ?? null,
-        };
-      }),
-    );
-  },
-});
-
-export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const items = await ctx.db.query("orders").order("desc").take(200);
-    return await Promise.all(
-      items.map(async (order) => {
-        const [booking, buyer] = await Promise.all([
-          ctx.db.get(order.bookingId),
-          ctx.db.get(order.userId),
-        ]);
-        const experience = booking ? await ctx.db.get(booking.experienceId) : null;
-        return {
-          ...order,
-          experienceTitle: experience?.title ?? "Trail removed",
-          guestName: booking?.guestName ?? "",
-          buyer: buyer?.name ?? buyer?.email ?? "Unknown",
         };
       }),
     );
@@ -155,13 +132,3 @@ export const confirmOnArrival = mutation({
   },
 });
 
-export const refund = mutation({
-  args: { id: v.id("orders") },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const order = await ctx.db.get(args.id);
-    if (!order) return;
-    await ctx.db.patch(args.id, { status: "refunded" });
-    await ctx.db.patch(order.bookingId, { status: "cancelled" });
-  },
-});

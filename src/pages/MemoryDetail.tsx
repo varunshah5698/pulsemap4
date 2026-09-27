@@ -5,7 +5,6 @@ import {
   relativeDay,
   toneMeta,
 } from "@/components/pulsemap/tone";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import type { Id } from "@/convex/_generated/dataModel";
@@ -21,6 +20,9 @@ const PRESETS = [
   { label: "In a month", days: 30 },
   { label: "In a year", days: 365 },
 ];
+
+const OUTLINE_BUTTON =
+  "h-11 gap-2 rounded-full border-white/12 bg-transparent px-5 text-white/85 hover:bg-white/5";
 
 export default function MemoryDetail() {
   const { id } = useParams<{ id: string }>();
@@ -50,7 +52,7 @@ export default function MemoryDetail() {
   if (memory === undefined) {
     return (
       <PulseShell eyebrow="Memory" title="Loading this pin">
-        <p className="text-sm text-muted-foreground">Fetching the note…</p>
+        <p className="text-sm text-white/50">Fetching the note…</p>
       </PulseShell>
     );
   }
@@ -58,10 +60,10 @@ export default function MemoryDetail() {
   if (memory === null) {
     return (
       <PulseShell eyebrow="Memory" title="This pin is not visible">
-        <p className="max-w-lg text-sm leading-6 text-muted-foreground">
+        <p className="max-w-lg text-sm leading-6 text-white/55">
           The memory may have been deleted, or it belongs to someone who keeps it
           private.{" "}
-          <Link to="/explore" className="underline">
+          <Link to="/explore" className="text-[#ff6a2c] hover:underline">
             Back to the catalogue
           </Link>
           .
@@ -112,7 +114,7 @@ export default function MemoryDetail() {
       description={memory.placeName}
       actions={
         <>
-          <Button asChild variant="outline" className="gap-2 rounded-sm border-[var(--rule)]">
+          <Button asChild variant="outline" className={OUTLINE_BUTTON}>
             <Link to="/map">
               <MapPin className="size-4" aria-hidden="true" />
               See it on the map
@@ -122,7 +124,7 @@ export default function MemoryDetail() {
             <Button
               type="button"
               variant="outline"
-              className="gap-2 rounded-sm border-[var(--rule)]"
+              className={OUTLINE_BUTTON}
               onClick={handleDelete}
             >
               <Trash2 className="size-4" aria-hidden="true" />
@@ -134,84 +136,80 @@ export default function MemoryDetail() {
     >
       <Link
         to="/explore"
-        className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+        className="mb-6 inline-flex items-center gap-2 text-sm text-white/45 transition-colors hover:text-white"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
         Back to the catalogue
       </Link>
 
-      <div
-        aria-hidden="true"
-        className="h-[4px] w-full"
-        style={{ background: meta.hex }}
-      />
-
-      <div className="mt-8 grid gap-10 lg:grid-cols-[1.6fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.6fr_1fr]">
         <div>
           {memory.mediaUrl ? (
-            <img
-              src={memory.mediaUrl}
-              alt=""
-              className="mb-8 w-full border border-[var(--rule)] object-cover"
-            />
+            <div className="pm-panel mb-8 overflow-hidden">
+              <img src={memory.mediaUrl} alt="" className="w-full object-cover" />
+            </div>
           ) : (
             <div
-              className="mb-8 flex h-48 items-end p-6"
+              className="pm-panel mb-8 flex h-48 items-end overflow-hidden p-6"
               style={{
-                background: `linear-gradient(180deg, ${meta.hex}1f 0%, ${meta.hex}40 100%)`,
+                background: `linear-gradient(150deg, ${meta.hex}55 0%, ${meta.hex}18 100%)`,
               }}
             >
-              <p className="micro-label" style={{ color: meta.hex }}>
-                No photograph on this pin
-              </p>
+              <span className="pm-chip">No photograph on this pin</span>
             </div>
           )}
 
-          <p className="text-lg leading-8">{memory.note || "No note was written."}</p>
+          <p className="text-[1.05rem] leading-8 text-white/85">
+            {memory.note || "No note was written."}
+          </p>
 
           <div className="mt-6 flex flex-wrap gap-2">
             {memory.tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="rounded-none">
+              <span key={tag} className="pm-chip">
                 {tag}
-              </Badge>
+              </span>
             ))}
           </div>
 
-          <div className="mt-12">
+          <div className="mt-10">
             <SectionHeading
               label={`${(comments ?? []).length} in the thread`}
               title="Comments"
             />
-            <ul className="hairline-grid border border-[var(--rule)] bg-card">
-              {(comments ?? []).length === 0 ? (
-                <li className="px-5 py-8 text-center text-sm text-muted-foreground">
-                  No comments yet. Say what you saw there.
-                </li>
-              ) : (
-                (comments ?? []).map((comment) => (
-                  <li key={comment._id} className="flex items-start gap-4 px-5 py-4">
-                    <div className="min-w-0 flex-1">
-                      <p className="micro-label">
-                        {comment.authorName} · {formatDateTime(comment.createdAt)}
-                      </p>
-                      <p className="mt-2 text-sm leading-6">{comment.body}</p>
-                    </div>
-                    {comment.userId === user?._id ? (
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="size-8 shrink-0"
-                        aria-label="Delete comment"
-                        onClick={() => removeComment({ id: comment._id })}
-                      >
-                        <Trash2 className="size-3.5" aria-hidden="true" />
-                      </Button>
-                    ) : null}
+            <div className="pm-panel overflow-hidden">
+              <ul className="hairline-grid">
+                {(comments ?? []).length === 0 ? (
+                  <li className="px-5 py-8 text-center text-sm text-white/40">
+                    No comments yet. Say what you saw there.
                   </li>
-                ))
-              )}
-            </ul>
+                ) : (
+                  (comments ?? []).map((comment) => (
+                    <li key={comment._id} className="flex items-start gap-4 px-5 py-4">
+                      <div className="min-w-0 flex-1">
+                        <p className="pm-chip">
+                          {comment.authorName} · {formatDateTime(comment.createdAt)}
+                        </p>
+                        <p className="mt-3 text-sm leading-6 text-white/80">
+                          {comment.body}
+                        </p>
+                      </div>
+                      {comment.userId === user?._id ? (
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className="size-8 shrink-0 text-white/40 hover:text-white"
+                          aria-label="Delete comment"
+                          onClick={() => removeComment({ id: comment._id })}
+                        >
+                          <Trash2 className="size-3.5" aria-hidden="true" />
+                        </Button>
+                      ) : null}
+                    </li>
+                  ))
+                )}
+              </ul>
+            </div>
 
             <form onSubmit={handleComment} className="mt-5 flex flex-col gap-3">
               <Textarea
@@ -220,10 +218,15 @@ export default function MemoryDetail() {
                 rows={3}
                 placeholder="Add a note to this place…"
                 aria-label="Add a comment"
+                className="rounded-2xl"
               />
               {error ? <p className="text-sm text-[var(--destructive)]">{error}</p> : null}
               <div>
-                <Button type="submit" disabled={posting || draft.trim().length === 0}>
+                <Button
+                  type="submit"
+                  className="h-11 rounded-full px-5 font-semibold"
+                  disabled={posting || draft.trim().length === 0}
+                >
                   {posting ? <Loader2 className="size-4 animate-spin" /> : null}
                   Post comment
                 </Button>
@@ -232,62 +235,70 @@ export default function MemoryDetail() {
           </div>
         </div>
 
-        <aside className="flex flex-col gap-8">
-          <section className="border border-[var(--rule)] bg-card px-5 py-5">
-            <p className="micro-label">On the record</p>
+        <aside className="flex flex-col gap-5">
+          <section className="pm-panel p-5">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="pm-panel-title">On the record</h2>
+              <span
+                aria-hidden="true"
+                className="size-2.5 rounded-full"
+                style={{ background: meta.hex }}
+              />
+            </div>
             <dl className="mt-4 flex flex-col gap-4 text-sm">
               <div>
-                <dt className="text-muted-foreground">Place</dt>
-                <dd className="mt-1">{memory.placeName}</dd>
+                <dt className="text-white/40">Place</dt>
+                <dd className="mt-1 text-white/85">{memory.placeName}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Happened</dt>
-                <dd className="mt-1">{formatDate(memory.happenedAt)}</dd>
+                <dt className="text-white/40">Happened</dt>
+                <dd className="mt-1 text-white/85">{formatDate(memory.happenedAt)}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Coordinates</dt>
-                <dd className="mt-1 font-mono text-xs">
+                <dt className="text-white/40">Coordinates</dt>
+                <dd className="mt-1 font-mono text-xs text-white/85">
                   {memory.lat.toFixed(5)}, {memory.lng.toFixed(5)}
                 </dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Visibility</dt>
-                <dd className="mt-1 capitalize">{memory.visibility}</dd>
+                <dt className="text-white/40">Visibility</dt>
+                <dd className="mt-1 text-white/85 capitalize">{memory.visibility}</dd>
               </div>
               <div>
-                <dt className="text-muted-foreground">Pinned by</dt>
-                <dd className="mt-1">{memory.authorName}</dd>
+                <dt className="text-white/40">Pinned by</dt>
+                <dd className="mt-1 text-white/85">{memory.authorName}</dd>
               </div>
             </dl>
           </section>
 
-          <section className="border border-[var(--rule)] bg-card px-5 py-5">
-            <p className="micro-label">Reminders</p>
-            <h2 className="font-display mt-3 text-2xl leading-tight">
+          <section className="pm-panel p-5">
+            <h2 className="pm-panel-title flex items-center gap-2">
+              <BellRing className="size-4 text-[#ff6a2c]" aria-hidden="true" />
               Come back to this place
             </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            <p className="mt-3 text-[13px] leading-6 text-white/50">
               Pulsemap will hold the note until you are ready to read it again.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               {PRESETS.map((preset) => (
-                <Button
+                <button
                   key={preset.label}
                   type="button"
-                  variant="outline"
-                  size="sm"
-                  className="gap-2 rounded-sm border-[var(--rule)]"
                   onClick={() => handleReminder(preset.days)}
+                  className="flex items-center gap-2 rounded-full border border-white/12 px-3.5 py-1.5 text-xs font-medium text-white/70 transition-colors hover:border-[#ff6a2c] hover:text-white"
                 >
                   <BellRing className="size-3.5" aria-hidden="true" />
                   {preset.label}
-                </Button>
+                </button>
               ))}
             </div>
             {myReminders.length > 0 ? (
-              <ul className="mt-4 border-t border-[var(--rule)] pt-4 text-xs text-muted-foreground">
+              <ul className="mt-4 border-t border-white/[0.07] pt-3">
                 {myReminders.map((reminder) => (
-                  <li key={reminder._id} className="py-1">
+                  <li
+                    key={reminder._id}
+                    className="py-1 text-xs text-white/45 tabular-nums"
+                  >
                     {formatDateTime(reminder.dueAt)} · {relativeDay(reminder.dueAt)}
                     {reminder.done ? " · done" : ""}
                   </li>
@@ -296,16 +307,13 @@ export default function MemoryDetail() {
             ) : null}
           </section>
 
-          <section className="border border-[var(--rule)] bg-card px-5 py-5">
-            <p className="micro-label">Guided trails</p>
-            <h2 className="font-display mt-3 text-2xl leading-tight">
-              Walk this city with a guide
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          <section className="pm-panel p-5">
+            <h2 className="pm-panel-title">Walk this city with a guide</h2>
+            <p className="mt-3 text-[13px] leading-6 text-white/50">
               Curated routes pass the places people still pin years later. Pick a date and
               a guide does the rest.
             </p>
-            <Button asChild className="mt-4 w-full rounded-sm">
+            <Button asChild className="mt-4 h-11 w-full rounded-full font-semibold">
               <Link to="/explore">Browse trails</Link>
             </Button>
           </section>

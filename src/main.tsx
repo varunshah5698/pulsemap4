@@ -9,6 +9,7 @@ import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter, Route, Routes, useLocation } from "react-router";
 import "./index.css";
+import "./dashboard.css";
 
 // Lazy load route components for better code splitting
 const Landing = lazy(() => import("./pages/Landing.tsx"));
@@ -21,7 +22,6 @@ const Explore = lazy(() => import("./pages/Explore.tsx"));
 const MemoryDetail = lazy(() => import("./pages/MemoryDetail.tsx"));
 const TrailDetail = lazy(() => import("./pages/TrailDetail.tsx"));
 const Checkout = lazy(() => import("./pages/Checkout.tsx"));
-const AdminPage = lazy(() => import("./pages/Admin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -197,18 +197,6 @@ createRoot(document.getElementById("root")!).render(
                     description="Your booking is held while you sign in."
                   >
                     <Checkout />
-                  </RequireAuth>
-                }
-              />
-              <Route
-                path="/admin"
-                element={
-                  <RequireAuth
-                    title="Sign in to manage the workspace"
-                    description="The admin area covers the catalogue, bookings, orders and member roles."
-                    redirectImmediately
-                  >
-                    <AdminPage />
                   </RequireAuth>
                 }
               />

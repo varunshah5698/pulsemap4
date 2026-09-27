@@ -643,7 +643,6 @@ export default function Dashboard() {
         open={dialogOpen}
         onOpenChange={setDialogOpen}
         coords={null}
-        dark
       />
     </div>
   );

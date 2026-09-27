@@ -40,8 +40,8 @@ export function RequireAuth({
 
   if (isLoading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background">
-        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      <main className="pm-dark flex min-h-screen items-center justify-center bg-[#0f0f11]">
+        <Loader2 className="size-6 animate-spin text-white/40" />
       </main>
     );
   }
@@ -55,7 +55,7 @@ export function RequireAuth({
     }
 
     return (
-      <main className="flex min-h-screen items-center justify-center bg-background p-6">
+      <main className="pm-dark flex min-h-screen items-center justify-center bg-[#0f0f11] p-6">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center">

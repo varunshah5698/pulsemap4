@@ -2,7 +2,6 @@ import { PulseShell, SectionHeading } from "@/components/pulsemap/AppShell";
 import { MemoryMap } from "@/components/pulsemap/MemoryMap";
 import { PinMemoryDialog } from "@/components/pulsemap/PinMemoryDialog";
 import { TONES, TONE_META, formatDate, toneMeta } from "@/components/pulsemap/tone";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,9 +15,18 @@ import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { cn } from "@/lib/utils";
 import { useQuery } from "convex/react";
-import { MapPin, Plus, Search } from "lucide-react";
+import { ArrowRight, MapPin, Plus, Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
+
+function toneChipClass(active: boolean) {
+  return cn(
+    "flex items-center gap-2 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors",
+    active
+      ? "border-[#ff6a2c] bg-[#ff6a2c] text-white"
+      : "border-white/12 text-white/55 hover:border-white/25 hover:text-white",
+  );
+}
 
 export default function MapPage() {
   const { user } = useAuth();
@@ -72,7 +80,7 @@ export default function MapPage() {
       actions={
         <Button
           type="button"
-          className="gap-2"
+          className="h-11 gap-2 rounded-full px-5 font-semibold"
           onClick={() => {
             setCoords(null);
             setDialogOpen(true);
@@ -83,7 +91,7 @@ export default function MapPage() {
         </Button>
       }
     >
-      <div className="grid gap-8 lg:grid-cols-[1.7fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.7fr_1fr]">
         <div>
           <MemoryMap
             pins={mapPins}
@@ -93,7 +101,7 @@ export default function MapPage() {
             picked={coords}
             className="h-[480px] lg:h-[620px]"
           />
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-xs text-white/40">
             Scroll is locked over the map so the page keeps its own rhythm. Use the zoom
             controls on the left, and click once to place a pin.
           </p>
@@ -109,7 +117,7 @@ export default function MapPage() {
               </label>
               <div className="relative">
                 <Search
-                  className="absolute top-3 left-3 size-4 text-muted-foreground"
+                  className="absolute top-3.5 left-3.5 size-4 text-white/35"
                   aria-hidden="true"
                 />
                 <Input
@@ -117,7 +125,7 @@ export default function MapPage() {
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                   placeholder="Title, place or tag"
-                  className="pl-9"
+                  className="h-11 rounded-full pl-10"
                 />
               </div>
             </div>
@@ -125,7 +133,7 @@ export default function MapPage() {
             <div className="flex flex-col gap-2">
               <span className="micro-label">Who pinned it</span>
               <Select value={scope} onValueChange={(value) => setScope(value as "all" | "mine")}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="h-11 w-full rounded-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -141,12 +149,7 @@ export default function MapPage() {
                 <button
                   type="button"
                   onClick={() => setTone("any")}
-                  className={cn(
-                    "border px-3 py-1 text-xs",
-                    tone === "any"
-                      ? "border-[var(--foreground)] bg-[var(--foreground)] text-background"
-                      : "border-[var(--rule)] text-muted-foreground",
-                  )}
+                  className={toneChipClass(tone === "any")}
                 >
                   Any
                 </button>
@@ -155,12 +158,7 @@ export default function MapPage() {
                     key={name}
                     type="button"
                     onClick={() => setTone(name)}
-                    className={cn(
-                      "flex items-center gap-2 border px-3 py-1 text-xs",
-                      tone === name
-                        ? "border-[var(--foreground)]"
-                        : "border-[var(--rule)] text-muted-foreground",
-                    )}
+                    className={toneChipClass(tone === name)}
                   >
                     <span
                       aria-hidden="true"
@@ -175,44 +173,45 @@ export default function MapPage() {
           </div>
 
           {selected ? (
-            <div className="mt-8 border border-[var(--foreground)] bg-card">
-              <div
+            <div className="pm-panel mt-8 overflow-hidden">
+              <span
                 aria-hidden="true"
-                className="h-[3px]"
+                className="block h-1"
                 style={{ background: toneMeta(selected.tone).hex }}
               />
-              <div className="px-5 py-4">
-                <p className="micro-label">{formatDate(selected.happenedAt)}</p>
-                <h3 className="font-display mt-3 text-2xl leading-tight">
+              <div className="px-5 py-5">
+                <p className="pm-chip">{formatDate(selected.happenedAt)}</p>
+                <h3 className="mt-3 text-xl leading-tight font-bold tracking-[-0.015em] text-white">
                   {selected.title}
                 </h3>
-                <p className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <p className="mt-2 flex items-center gap-1.5 text-xs text-white/45">
                   <MapPin className="size-3.5" aria-hidden="true" />
                   {selected.placeName}
                 </p>
-                <p className="mt-3 line-clamp-4 text-sm leading-6 text-muted-foreground">
+                <p className="mt-3 line-clamp-4 text-[13px] leading-6 text-white/55">
                   {selected.note}
                 </p>
                 <div className="mt-4 flex flex-wrap items-center gap-2">
                   {selected.tags.map((tag) => (
-                    <Badge key={tag} variant="outline" className="rounded-none">
+                    <span key={tag} className="pm-chip">
                       {tag}
-                    </Badge>
+                    </span>
                   ))}
                   <Link
                     to={`/m/${selected._id}`}
-                    className="ml-auto text-sm underline decoration-[var(--rule-strong)] underline-offset-4"
+                    className="ml-auto flex items-center gap-1.5 text-xs font-medium text-[#ff6a2c] hover:underline"
                   >
                     Open memory
+                    <ArrowRight className="size-3.5" aria-hidden="true" />
                   </Link>
                 </div>
               </div>
             </div>
           ) : null}
 
-          <ul className="hairline-grid mt-8 max-h-[420px] overflow-y-auto border border-[var(--rule)] bg-card">
+          <ul className="pm-panel mt-8 max-h-[420px] overflow-y-auto p-2">
             {filtered.length === 0 ? (
-              <li className="px-5 py-10 text-center text-sm text-muted-foreground">
+              <li className="px-5 py-10 text-center text-sm text-white/40">
                 No pins match these filters yet.
               </li>
             ) : (
@@ -221,19 +220,19 @@ export default function MapPage() {
                   <button
                     type="button"
                     onClick={() => setSelectedId(pin._id)}
-                    className={cn(
-                      "flex w-full items-start gap-3 px-4 py-4 text-left transition-colors hover:bg-[var(--muted)]",
-                      pin._id === selectedId && "bg-[var(--muted)]",
-                    )}
+                    data-active={pin._id === selectedId}
+                    className="pm-row w-full text-left"
                   >
                     <span
                       aria-hidden="true"
-                      className="mt-1.5 size-2.5 shrink-0 rounded-full"
+                      className="size-2.5 shrink-0 rounded-full"
                       style={{ background: toneMeta(pin.tone).hex }}
                     />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{pin.title}</span>
-                      <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                      <span className="block truncate text-sm font-medium text-white">
+                        {pin.title}
+                      </span>
+                      <span className="mt-0.5 block truncate text-xs text-white/45">
                         {pin.placeName} · {formatDate(pin.happenedAt)}
                       </span>
                     </span>

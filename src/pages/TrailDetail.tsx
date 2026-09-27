@@ -13,11 +13,13 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
-import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "convex/react";
 import { ArrowLeft, Check, Clock, Loader2, MapPin, Star, Users } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+
+const OUTLINE_BUTTON =
+  "h-11 gap-2 rounded-full border-white/12 bg-transparent px-5 text-white/85 hover:bg-white/5";
 
 export default function TrailDetail() {
   const { slug } = useParams<{ slug: string }>();
@@ -55,7 +57,7 @@ export default function TrailDetail() {
   if (trail === undefined) {
     return (
       <PulseShell eyebrow="Guided trail" title="Loading the route">
-        <p className="text-sm text-muted-foreground">Fetching the trail…</p>
+        <p className="text-sm text-white/50">Fetching the trail…</p>
       </PulseShell>
     );
   }
@@ -63,8 +65,8 @@ export default function TrailDetail() {
   if (trail === null) {
     return (
       <PulseShell eyebrow="Guided trail" title="That trail is not on the map">
-        <p className="text-sm text-muted-foreground">
-          <Link to="/explore" className="underline">
+        <p className="text-sm text-white/50">
+          <Link to="/explore" className="text-[#ff6a2c] hover:underline">
             Back to the catalogue
           </Link>{" "}
           to pick another route.
@@ -110,7 +112,7 @@ export default function TrailDetail() {
       title={trail.title}
       description={trail.summary}
       actions={
-        <Button asChild variant="outline" className="gap-2 rounded-sm border-[var(--rule)]">
+        <Button asChild variant="outline" className={OUTLINE_BUTTON}>
           <Link to="/explore">
             <ArrowLeft className="size-4" aria-hidden="true" />
             All trails
@@ -118,12 +120,12 @@ export default function TrailDetail() {
         </Button>
       }
     >
-      <div className="grid gap-10 lg:grid-cols-[1.5fr_1fr]">
+      <div className="grid gap-6 lg:grid-cols-[1.5fr_1fr]">
         <div>
           <div
-            className="relative h-72 overflow-hidden border border-[var(--rule)]"
+            className="pm-panel relative h-72 overflow-hidden"
             style={{
-              background: `linear-gradient(180deg, ${meta.hex}1f 0%, ${meta.hex}55 100%)`,
+              background: `linear-gradient(160deg, ${meta.hex}66 0%, ${meta.hex}22 100%)`,
             }}
           >
             <img
@@ -131,14 +133,9 @@ export default function TrailDetail() {
               alt=""
               className="absolute bottom-0 left-1/2 h-[94%] w-auto max-w-none -translate-x-1/2 object-contain"
             />
-            <span
-              aria-hidden="true"
-              className="absolute inset-x-0 bottom-0 h-1"
-              style={{ background: meta.hex }}
-            />
           </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-px border border-[var(--rule)] bg-[var(--rule)] sm:grid-cols-4">
+          <div className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
             {[
               {
                 label: "Duration",
@@ -153,24 +150,29 @@ export default function TrailDetail() {
                 icon: Star,
               },
             ].map((item) => (
-              <div key={item.label} className="bg-card px-4 py-4">
+              <div key={item.label} className="pm-panel-soft px-4 py-4">
                 <p className="micro-label">{item.label}</p>
-                <p className="mt-2 flex items-center gap-1.5 text-sm">
-                  <item.icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <p className="mt-2 flex items-center gap-1.5 text-sm text-white/85">
+                  <item.icon
+                    className="size-3.5 shrink-0 text-[#ff6a2c]"
+                    aria-hidden="true"
+                  />
                   <span className="truncate">{item.value}</span>
                 </p>
               </div>
             ))}
           </div>
 
-          <div className="mt-10">
+          <div className="mt-9">
             <SectionHeading label="What this walk is" title="About the route" />
-            <p className="max-w-3xl text-base leading-8">{trail.description}</p>
-            <ul className="mt-6 hairline-grid border border-[var(--rule)] bg-card">
+            <p className="max-w-3xl text-[15px] leading-8 text-white/75">
+              {trail.description}
+            </p>
+            <ul className="pm-panel hairline-grid mt-5 overflow-hidden">
               {trail.highlights.map((highlight) => (
                 <li key={highlight} className="flex items-center gap-3 px-5 py-4 text-sm">
-                  <Check className="size-4 shrink-0 text-[var(--tone-quiet)]" aria-hidden="true" />
-                  {highlight}
+                  <Check className="size-4 shrink-0 text-[#ff6a2c]" aria-hidden="true" />
+                  <span className="text-white/80">{highlight}</span>
                 </li>
               ))}
             </ul>
@@ -178,26 +180,27 @@ export default function TrailDetail() {
         </div>
 
         <aside>
-          <form
-            onSubmit={handleBooking}
-            className="border border-[var(--rule)] bg-card px-5 py-6 lg:sticky lg:top-24"
-          >
-            <p className="micro-label">Book a place</p>
-            <p className="font-display mt-3 text-3xl leading-none">
-              {formatMoney(trail.priceCents, trail.currency)}
-              <span className="ml-2 align-middle font-sans text-xs tracking-wide text-muted-foreground uppercase">
-                per person
+          <form onSubmit={handleBooking} className="pm-panel p-5 lg:sticky lg:top-6">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="pm-chip">Book a place</span>
+              <span className="text-[11px] text-white/45">Free cancellation · 24h</span>
+            </div>
+
+            <p className="mt-4 flex items-baseline gap-2">
+              <span className="pm-metric">
+                {formatMoney(trail.priceCents, trail.currency)}
               </span>
+              <span className="pm-metric-unit">per person</span>
             </p>
 
             <div className="mt-6 flex flex-col gap-4">
               <div className="flex flex-col gap-2">
-                <Label>Choose a start time</Label>
+                <Label className="text-white/70">Choose a start time</Label>
                 <Select
                   value={startsAt ? String(startsAt) : ""}
                   onValueChange={(value) => setStartsAt(Number(value))}
                 >
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-11 w-full rounded-2xl">
                     <SelectValue placeholder="Pick a day and hour" />
                   </SelectTrigger>
                   <SelectContent>
@@ -216,15 +219,17 @@ export default function TrailDetail() {
                     )}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-white/40">
                   Slots run three times a day, three weeks ahead. Seats update live.
                 </p>
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="party">People</Label>
+                <Label htmlFor="party" className="text-white/70">
+                  People
+                </Label>
                 <Select value={partySize} onValueChange={setPartySize}>
-                  <SelectTrigger className="w-full">
+                  <SelectTrigger className="h-11 w-full rounded-2xl">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -238,9 +243,12 @@ export default function TrailDetail() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="guest">Name on the booking</Label>
+                <Label htmlFor="guest" className="text-white/70">
+                  Name on the booking
+                </Label>
                 <Input
                   id="guest"
+                  className="h-11 rounded-2xl"
                   value={guestName}
                   onChange={(event) => setGuestName(event.target.value)}
                   required
@@ -248,10 +256,13 @@ export default function TrailDetail() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email" className="text-white/70">
+                  Email
+                </Label>
                 <Input
                   id="email"
                   type="email"
+                  className="h-11 rounded-2xl"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
                   required
@@ -259,19 +270,25 @@ export default function TrailDetail() {
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="phone">Phone, optional</Label>
+                <Label htmlFor="phone" className="text-white/70">
+                  Phone, optional
+                </Label>
                 <Input
                   id="phone"
+                  className="h-11 rounded-2xl"
                   value={phone}
                   onChange={(event) => setPhone(event.target.value)}
                 />
               </div>
 
               <div className="flex flex-col gap-2">
-                <Label htmlFor="notes">Anything the guide should know</Label>
+                <Label htmlFor="notes" className="text-white/70">
+                  Anything the guide should know
+                </Label>
                 <Textarea
                   id="notes"
                   rows={3}
+                  className="rounded-2xl"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   placeholder="Slow pace, one wheelchair, a birthday…"
@@ -279,37 +296,36 @@ export default function TrailDetail() {
               </div>
             </div>
 
-            <div className="mt-6 flex items-end justify-between border-t border-[var(--rule)] pt-5">
+            <div className="mt-6 flex items-end justify-between gap-4 border-t border-white/[0.07] pt-5">
               <div>
                 <p className="micro-label">Total</p>
-                <p className="mt-2 text-xs text-muted-foreground">
+                <p className="mt-2 text-xs text-white/45">
                   {Number(partySize)} × {formatMoney(trail.priceCents, trail.currency)}
                 </p>
               </div>
-              <p className="font-display text-3xl leading-none">
+              <p className="text-2xl leading-none font-bold text-white tabular-nums">
                 {formatMoney(total, trail.currency)}
               </p>
             </div>
 
             {error ? (
-              <p className="mt-4 border-l-2 border-[var(--destructive)] bg-[var(--muted)] px-3 py-2 text-sm text-[var(--destructive)]">
+              <p className="mt-4 rounded-2xl border-l-2 border-[var(--destructive)] bg-[var(--destructive)]/10 px-3 py-2 text-sm text-[var(--destructive)]">
                 {error}
               </p>
             ) : null}
 
-            <Button type="submit" className="mt-5 w-full rounded-sm" disabled={saving}>
+            <Button
+              type="submit"
+              className="mt-5 h-11 w-full rounded-full font-semibold"
+              disabled={saving}
+            >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               Reserve my place
             </Button>
-            <p className="mt-3 text-center text-xs text-muted-foreground">
+            <p className="mt-3 text-center text-xs text-white/40">
               You choose how to pay on the next step.
             </p>
           </form>
-
-          <p className={cn("mt-4 text-xs leading-5 text-muted-foreground")}>
-            Free cancellation up to 24 hours before the walk. Times are shown in your
-            device's clock.
-          </p>
         </aside>
       </div>
     </PulseShell>

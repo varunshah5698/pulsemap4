@@ -24,15 +24,6 @@ export async function isAdmin(ctx: Ctx): Promise<boolean> {
   return user?.role === ROLES.ADMIN;
 }
 
-/** Throws unless the caller is an administrator. */
-export async function requireAdmin(ctx: Ctx): Promise<Doc<"users">> {
-  const user = await currentUser(ctx);
-  if (!user || user.role !== ROLES.ADMIN) {
-    throw new Error("Administrator access is required for this action.");
-  }
-  return user;
-}
-
 /** Display name that reads well in lists. */
 export function displayName(user: Doc<"users"> | null): string {
   if (!user) return "Someone";

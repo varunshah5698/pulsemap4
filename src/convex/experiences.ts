@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { requireAdmin, requireUserId } from "./access";
+import { requireUserId } from "./access";
 import { toneValidator } from "./schema";
 
 export const list = query({
@@ -26,15 +26,6 @@ export const list = query({
       ? items.filter((item) => item.city.toLowerCase() === args.city!.toLowerCase())
       : items;
     return filtered.sort((a, b) => a.priceCents - b.priceCents);
-  },
-});
-
-export const listAll = query({
-  args: {},
-  handler: async (ctx) => {
-    await requireAdmin(ctx);
-    const items = await ctx.db.query("experiences").collect();
-    return items.sort((a, b) => b.createdAt - a.createdAt);
   },
 });
 
@@ -94,81 +85,6 @@ export const availability = query({
       }
     }
     return slots;
-  },
-});
-
-export const create = mutation({
-  args: {
-    slug: v.string(),
-    title: v.string(),
-    summary: v.string(),
-    description: v.string(),
-    city: v.string(),
-    country: v.string(),
-    lat: v.number(),
-    lng: v.number(),
-    durationMinutes: v.number(),
-    priceCents: v.number(),
-    currency: v.string(),
-    capacity: v.number(),
-    guide: v.string(),
-    tone: toneValidator,
-    imageUrl: v.string(),
-    highlights: v.array(v.string()),
-    published: v.boolean(),
-  },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const existing = await ctx.db
-      .query("experiences")
-      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
-      .unique();
-    if (existing) throw new Error("That trail slug is already in use.");
-    return await ctx.db.insert("experiences", {
-      ...args,
-      highlights: args.highlights.slice(0, 8),
-      rating: 0,
-      reviewCount: 0,
-      createdAt: Date.now(),
-    });
-  },
-});
-
-export const update = mutation({
-  args: {
-    id: v.id("experiences"),
-    title: v.optional(v.string()),
-    summary: v.optional(v.string()),
-    description: v.optional(v.string()),
-    priceCents: v.optional(v.number()),
-    capacity: v.optional(v.number()),
-    durationMinutes: v.optional(v.number()),
-    guide: v.optional(v.string()),
-    published: v.optional(v.boolean()),
-    tone: v.optional(toneValidator),
-  },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const { id, ...rest } = args;
-    const patch = Object.fromEntries(
-      Object.entries(rest).filter(([, value]) => value !== undefined),
-    );
-    await ctx.db.patch(id, patch);
-  },
-});
-
-export const remove = mutation({
-  args: { id: v.id("experiences") },
-  handler: async (ctx, args) => {
-    await requireAdmin(ctx);
-    const bookings = await ctx.db
-      .query("bookings")
-      .withIndex("by_experience_start", (q) => q.eq("experienceId", args.id))
-      .collect();
-    if (bookings.length > 0) {
-      throw new Error("Cancel every booking on this trail before deleting it.");
-    }
-    await ctx.db.delete(args.id);
   },
 });
 

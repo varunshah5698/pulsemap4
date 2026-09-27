@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/convex/_generated/api";
-import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import { ImagePlus, Loader2, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -29,14 +28,11 @@ export function PinMemoryDialog({
   onOpenChange,
   coords,
   onPinned,
-  dark = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   coords: { lat: number; lng: number } | null;
   onPinned?: () => void;
-  /** Renders the panel with the dark dashboard theme instead of paper. */
-  dark?: boolean;
 }) {
   const generateUploadUrl = useMutation(api.memories.generateUploadUrl);
   const createMemory = useMutation(api.memories.create);
@@ -164,14 +160,9 @@ export function PinMemoryDialog({
         onOpenChange(next);
       }}
     >
-      <DialogContent
-        className={cn(
-          "max-h-[92vh] overflow-y-auto rounded-sm border-[var(--rule)] sm:max-w-2xl",
-          dark && "pm-dark rounded-[26px] border-white/10",
-        )}
-      >
+      <DialogContent className="pm-dark max-h-[92vh] overflow-y-auto rounded-[26px] border-white/10 sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle className="font-display text-3xl font-normal">
+          <DialogTitle className="text-2xl font-bold tracking-[-0.02em] text-white">
             Pin a memory
           </DialogTitle>
           <DialogDescription>
@@ -180,9 +171,9 @@ export function PinMemoryDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-5">
-          <div className="flex items-center justify-between gap-3 border border-[var(--rule)] bg-[var(--muted)] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.03] px-4 py-3">
             <div className="flex items-center gap-2 text-sm">
-              <MapPin className="size-4 text-[var(--tone-bright)]" aria-hidden="true" />
+              <MapPin className="size-4 text-[#ff6a2c]" aria-hidden="true" />
               {coords ? (
                 <span>
                   {coords.lat.toFixed(5)}, {coords.lng.toFixed(5)}
@@ -292,7 +283,7 @@ export function PinMemoryDialog({
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="gap-2 rounded-sm border-[var(--rule)]"
+                  className="gap-2 rounded-full border-white/12 bg-transparent text-white/85 hover:bg-white/5"
                   onClick={useCurrentLocation}
                 >
                   <MapPin className="size-3.5" aria-hidden="true" />
@@ -332,7 +323,7 @@ export function PinMemoryDialog({
               <Button
                 type="button"
                 variant="outline"
-                className="gap-2 rounded-sm border-[var(--rule)]"
+                className="h-11 gap-2 rounded-full border-white/12 bg-transparent px-5 text-white/85 hover:bg-white/5"
                 onClick={() => document.getElementById("memory-photo")?.click()}
               >
                 <ImagePlus className="size-4" aria-hidden="true" />
@@ -349,7 +340,7 @@ export function PinMemoryDialog({
                 <img
                   src={preview}
                   alt=""
-                  className="h-16 w-24 border border-[var(--rule)] object-cover"
+                  className="h-16 w-24 rounded-xl border border-white/10 object-cover"
                 />
               ) : (
                 <span className="text-xs text-muted-foreground">
@@ -360,7 +351,7 @@ export function PinMemoryDialog({
           </div>
 
           {error ? (
-            <p className="border-l-2 border-[var(--destructive)] bg-[var(--muted)] px-3 py-2 text-sm text-[var(--destructive)]">
+            <p className="rounded-2xl border-l-2 border-[var(--destructive)] bg-[var(--destructive)]/10 px-3 py-2 text-sm text-[var(--destructive)]">
               {error}
             </p>
           ) : null}
@@ -369,12 +360,17 @@ export function PinMemoryDialog({
             <Button
               type="button"
               variant="ghost"
+              className="h-11 rounded-full px-5 text-white/70 hover:text-white"
               onClick={() => onOpenChange(false)}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={saving} className="gap-2">
+            <Button
+              type="submit"
+              disabled={saving}
+              className="h-11 gap-2 rounded-full px-5 font-semibold"
+            >
               {saving ? <Loader2 className="size-4 animate-spin" /> : null}
               Save memory
             </Button>
