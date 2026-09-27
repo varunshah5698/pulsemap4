@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/input-otp";
 
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -110,29 +109,33 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
   };
 
   return (
-    <div className="min-h-screen flex flex-col">
-
-      
+    <div className="min-h-screen flex flex-col bg-background">
       {/* Auth Content */}
-      <div className="flex-1 flex items-center justify-center">
+      <div className="flex-1 flex items-center justify-center px-4 py-12">
         <div className="flex items-center justify-center h-full flex-col">
-        <Card className="min-w-[350px] pb-0 border shadow-md">
+        <div className="mb-8 max-w-sm text-center">
+          <p className="micro-label">Pulsemap</p>
+          <h1 className="font-display mt-3 text-3xl leading-tight">
+            A memory map for places worth returning to
+          </h1>
+        </div>
+        <Card className="min-w-[350px] pb-0 rounded-sm border-[var(--rule)] shadow-none">
           {step === "signIn" ? (
             <>
               <CardHeader className="text-center">
-              <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
-                      onClick={() => navigate("/")}
-                    />
-                  </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/")}
+                    className="font-display mb-2 cursor-pointer text-2xl"
+                  >
+                    Pulsemap
+                  </button>
+                </div>
+                <CardTitle className="text-xl">Sign in or create an account</CardTitle>
                 <CardDescription>
-                  Enter your email to log in or sign up
+                  One email address — we send a six-digit code, so there is no password to
+                  remember.
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
@@ -173,7 +176,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         <span className="w-full border-t" />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
+                        <span className="bg-card px-2 text-muted-foreground">
                           Or
                         </span>
                       </div>
@@ -187,7 +190,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       disabled={isLoading}
                     >
                       <UserX className="mr-2 h-4 w-4" />
-                      Continue as Guest
+                      Look around as a guest first
                     </Button>
                   </div>
                 </CardContent>
@@ -277,7 +280,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             </>
           )}
 
-          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
+          <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-sm">
             Secured by{" "}
             <a
               href="https://freebuff.com"

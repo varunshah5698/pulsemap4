@@ -16,6 +16,39 @@ export const roleValidator = v.union(
 );
 export type Role = Infer<typeof roleValidator>;
 
+/** The palette a pin, card or trail can carry. Keeps the map colourful but calm. */
+export const toneValidator = v.union(
+  v.literal("quiet"),
+  v.literal("golden"),
+  v.literal("bright"),
+  v.literal("storm"),
+  v.literal("night"),
+);
+export type Tone = Infer<typeof toneValidator>;
+
+export const visibilityValidator = v.union(
+  v.literal("private"),
+  v.literal("circle"),
+  v.literal("public"),
+);
+export type Visibility = Infer<typeof visibilityValidator>;
+
+export const bookingStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("confirmed"),
+  v.literal("completed"),
+  v.literal("cancelled"),
+);
+export type BookingStatus = Infer<typeof bookingStatusValidator>;
+
+export const orderStatusValidator = v.union(
+  v.literal("requires_payment"),
+  v.literal("paid"),
+  v.literal("refunded"),
+  v.literal("cancelled"),
+);
+export type OrderStatus = Infer<typeof orderStatusValidator>;
+
 const schema = defineSchema(
   {
     // default auth tables using convex auth.
@@ -32,12 +65,109 @@ const schema = defineSchema(
       role: v.optional(roleValidator), // role of the user. do not remove
     }).index("email", ["email"]), // index for the email. do not remove or modify
 
-    // add other tables here
+    // A pinned memory: one honest note about one place at one time.
+    memories: defineTable({
+      userId: v.id("users"),
+      title: v.string(),
+      note: v.string(),
+      placeName: v.string(),
+      lat: v.number(),
+      lng: v.number(),
+      happenedAt: v.number(),
+      tone: toneValidator,
+      tags: v.array(v.string()),
+      visibility: visibilityValidator,
+      mediaId: v.optional(v.id("_storage")),
+      createdAt: v.number(),
+      updatedAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_visibility", ["visibility"])
+      .searchIndex("search_title", {
+        searchField: "title",
+        filterFields: ["visibility"],
+      }),
 
-    // tableName: defineTable({
-    //   ...
-    //   // table fields
-    // }).index("by_field", ["field"])
+    // Threads under a memory, so a place keeps its conversations.
+    comments: defineTable({
+      memoryId: v.id("memories"),
+      userId: v.id("users"),
+      body: v.string(),
+      createdAt: v.number(),
+    }).index("by_memory", ["memoryId"]),
+
+    // Gentle nudges: "you were here a year ago".
+    reminders: defineTable({
+      userId: v.id("users"),
+      memoryId: v.optional(v.id("memories")),
+      title: v.string(),
+      body: v.optional(v.string()),
+      dueAt: v.number(),
+      done: v.boolean(),
+      createdAt: v.number(),
+    }).index("by_user_due", ["userId", "dueAt"]),
+
+    // The bookable catalogue: guided memory walks.
+    experiences: defineTable({
+      slug: v.string(),
+      title: v.string(),
+      summary: v.string(),
+      description: v.string(),
+      city: v.string(),
+      country: v.string(),
+      lat: v.number(),
+      lng: v.number(),
+      durationMinutes: v.number(),
+      priceCents: v.number(),
+      currency: v.string(),
+      capacity: v.number(),
+      guide: v.string(),
+      tone: toneValidator,
+      imageUrl: v.string(),
+      highlights: v.array(v.string()),
+      rating: v.number(),
+      reviewCount: v.number(),
+      published: v.boolean(),
+      createdAt: v.number(),
+    })
+      .index("by_slug", ["slug"])
+      .searchIndex("search_title", {
+        searchField: "title",
+        filterFields: ["published", "city"],
+      }),
+
+    bookings: defineTable({
+      experienceId: v.id("experiences"),
+      userId: v.id("users"),
+      startsAt: v.number(),
+      partySize: v.number(),
+      guestName: v.string(),
+      email: v.string(),
+      phone: v.optional(v.string()),
+      notes: v.optional(v.string()),
+      status: bookingStatusValidator,
+      totalCents: v.number(),
+      currency: v.string(),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_experience_start", ["experienceId", "startsAt"])
+      .index("by_status", ["status"]),
+
+    orders: defineTable({
+      userId: v.id("users"),
+      bookingId: v.id("bookings"),
+      amountCents: v.number(),
+      currency: v.string(),
+      status: orderStatusValidator,
+      method: v.union(v.literal("card"), v.literal("on_arrival")),
+      providerRef: v.optional(v.string()),
+      createdAt: v.number(),
+      paidAt: v.optional(v.number()),
+    })
+      .index("by_user", ["userId"])
+      .index("by_booking", ["bookingId"])
+      .index("by_status", ["status"]),
   },
   {
     schemaValidation: false,

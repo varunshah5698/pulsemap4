@@ -13,6 +13,12 @@ import "./index.css";
 const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const MapPage = lazy(() => import("./pages/MapPage.tsx"));
+const Explore = lazy(() => import("./pages/Explore.tsx"));
+const MemoryDetail = lazy(() => import("./pages/MemoryDetail.tsx"));
+const TrailDetail = lazy(() => import("./pages/TrailDetail.tsx"));
+const Checkout = lazy(() => import("./pages/Checkout.tsx"));
+const AdminPage = lazy(() => import("./pages/Admin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
 // Simple loading fallback for route transitions
@@ -123,12 +129,81 @@ createRoot(document.getElementById("root")!).render(
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
-              />
-              <Route
+              />              <Route
                 path="/dashboard"
                 element={
-                  <RequireAuth>
+                  <RequireAuth
+                    title="Sign in to your memory map"
+                    description="Your pins, reminders and bookings live behind your account."
+                  >
                     <Dashboard />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/map"
+                element={
+                  <RequireAuth
+                    title="Sign in to open the live map"
+                    description="The map shows your own pins and the public memories of everyone else."
+                  >
+                    <MapPage />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/explore"
+                element={
+                  <RequireAuth
+                    title="Sign in to browse the catalogue"
+                    description="Public memories and bookable guided trails are open to members."
+                  >
+                    <Explore />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/m/:id"
+                element={
+                  <RequireAuth
+                    title="Sign in to read this memory"
+                    description="Memory pages hold the note, the comments and the reminder."
+                  >
+                    <MemoryDetail />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/trails/:slug"
+                element={
+                  <RequireAuth
+                    title="Sign in to book this trail"
+                    description="Pick a date and a guide for the walk."
+                  >
+                    <TrailDetail />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/checkout/:orderId"
+                element={
+                  <RequireAuth
+                    title="Sign in to finish checkout"
+                    description="Your booking is held while you sign in."
+                  >
+                    <Checkout />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAuth
+                    title="Sign in to manage the workspace"
+                    description="The admin area covers the catalogue, bookings, orders and member roles."
+                    redirectImmediately
+                  >
+                    <AdminPage />
                   </RequireAuth>
                 }
               />
